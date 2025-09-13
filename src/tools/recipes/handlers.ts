@@ -142,15 +142,11 @@ export class RecipeToolHandlers extends BaseToolHandler {
     
     // Validate required parameters based on mode
     if (!allowNoMealPlan && !mealPlanEntryId) {
-      throw new McpError(ErrorCode.InvalidParams, 'mealPlanEntryId is required when allow_no_meal_plan is false.');
+      throw new McpError(ErrorCode.InvalidParams, 'mealPlanEntryId is required.');
     }
     
     if (allowNoMealPlan && !recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required when allow_no_meal_plan is true.');
-    }
-    
-    if (allowNoMealPlan && mealPlanEntryId) {
-      throw new McpError(ErrorCode.InvalidParams, 'mealPlanEntryId should not be provided when allow_no_meal_plan is true. Use recipeId instead.');
+      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required.');
     }
 
     if (!stockAmounts || !Array.isArray(stockAmounts) || stockAmounts.length === 0) {
@@ -293,7 +289,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       }
 
       return this.createSuccessResult({
-        message: `Recipe ${actualRecipeId} cooked (${totalServings} servings consumed, ${stockEntries.splitEntries.length} stock entries created, ${stockEntries.labelsPrinted} labels printed)`,
+        message: `Recipe ${actualRecipeId} has been marked as cooked (${totalServings} servings consumed, ${stockEntries.splitEntries.length} stock entries created and ${stockEntries.labelsPrinted} labels sent to the printer)`,
         stockEntries,
       });
 
@@ -303,7 +299,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
         reason: error.message,
         help: completedSteps.length > 0 
           ? `Completed steps: ${completedSteps.join(', ')}. Check the error above and retry if needed.`
-          : 'No steps completed. Verify the meal plan entry ID exists and is not already marked as done.'
+          : 'No steps completed.'
       });
     }
   };
