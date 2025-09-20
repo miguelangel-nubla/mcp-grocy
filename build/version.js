@@ -1,4 +1,4 @@
 // Auto-generated file - DO NOT MODIFY
-export const VERSION = '2.0.2';
+export const VERSION = '2.0.3';
 export const PACKAGE_NAME = 'mcp-grocy';
 export const SERVER_NAME = 'grocy-api';
