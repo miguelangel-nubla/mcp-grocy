@@ -5,9 +5,12 @@
 
 import { z } from 'zod';
 import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import YAML from 'yaml';
 import { logger } from '../utils/logger.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Environment schema
 const EnvironmentSchema = z.object({
@@ -117,9 +120,15 @@ export class ConfigManager {
   private findConfigFile(configPath?: string): string {
     if (configPath) return configPath;
     
+    // Look for config files in the following order:
+    // 1. Current working directory (for development)
+    // 2. Project root (relative to the compiled main.js)
+    const projectRoot = resolve(__dirname, '../..');
     const possiblePaths = [
       resolve(process.cwd(), 'mcp-grocy.yaml'),
       resolve(process.cwd(), 'mcp-grocy.yml'),
+      resolve(projectRoot, 'mcp-grocy.yaml'),
+      resolve(projectRoot, 'mcp-grocy.yml'),
     ];
 
     return possiblePaths.find(path => existsSync(path)) ?? possiblePaths[0]!;

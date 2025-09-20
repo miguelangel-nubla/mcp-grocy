@@ -1,8 +1,11 @@
 import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import YAML from 'yaml';
 import { z } from 'zod';
 import { logger } from '../utils/logger.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Define common sub-configuration options that are validated globally
 const CommonSubConfigSchema = z.object({
@@ -42,10 +45,15 @@ export class YamlConfigManager {
     if (configPath) {
       this.configPath = configPath;
     } else {
-      // Look for mcp-grocy.yaml in current directory or project root
+      // Look for config files in the following order:
+      // 1. Current working directory (for development)
+      // 2. Project root (relative to the compiled main.js)
+      const projectRoot = resolve(__dirname, '../..');
       const possiblePaths = [
         resolve(process.cwd(), 'mcp-grocy.yaml'),
         resolve(process.cwd(), 'mcp-grocy.yml'),
+        resolve(projectRoot, 'mcp-grocy.yaml'),
+        resolve(projectRoot, 'mcp-grocy.yml'),
       ];
 
       this.configPath = possiblePaths.find(path => existsSync(path)) ?? possiblePaths[0]!;
