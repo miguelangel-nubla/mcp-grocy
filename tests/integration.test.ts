@@ -7,7 +7,7 @@ vi.mock('../src/config/environment.js', () => ({
   default: {
     get: () => ({
       GROCY_BASE_URL: 'http://test-grocy:9283',
-      GROCY_APIKEY_VALUE: 'test-api-key',
+      GROCY_API_KEY: 'test-api-key',
       GROCY_ENABLE_SSL_VERIFY: true,
       ENABLE_HTTP_SERVER: false,
       HTTP_SERVER_PORT: 8080,

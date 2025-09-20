@@ -10,7 +10,7 @@ Before testing the API, you can create your own private Grocy demo instance:
 4. Use the provided API key and URL in your `.env` file:
    ```
    GROCY_BASE_URL=https://your-name-xxxxx.demo.grocy.info
-   GROCY_APIKEY_VALUE=your-private-api-key
+   GROCY_API_KEY=your-private-api-key
    ```
 
 ⚠️ IMPORTANT: Only provide the endpoint path - do not include full URLs. Your path will be automatically resolved to the full URL.

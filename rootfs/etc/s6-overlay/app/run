@@ -9,7 +9,7 @@ set -x # Print commands and their arguments as they are executed.
 
 # --- Read configuration from config.yaml ---
 export GROCY_BASE_URL=$(bashio::config 'grocy_base_url')
-export GROCY_APIKEY_VALUE=$(bashio::config 'grocy_api_key')
+export GROCY_API_KEY=$(bashio::config 'grocy_api_key')
 export GROCY_ENABLE_SSL_VERIFY=$(bashio::config 'enable_ssl_verify')
 export REST_RESPONSE_SIZE_LIMIT=$(bashio::config 'response_size_limit')
 export ENABLE_HTTP_SERVER=$(bashio::config 'enable_http_server')
@@ -43,7 +43,7 @@ bashio::log.info "build/main.js found."
 # --- Test environment variable visibility for Node.js ---
 bashio::log.info "Testing Node.js environment variable visibility..."
 node -e "console.log('[NODE_TEST] GROCY_BASE_URL: ' + process.env.GROCY_BASE_URL);"
-node -e "console.log('[NODE_TEST] GROCY_APIKEY_VALUE: ' + (process.env.GROCY_APIKEY_VALUE ? 'SET' : 'NOT SET'));"
+node -e "console.log('[NODE_TEST] GROCY_API_KEY: ' + (process.env.GROCY_API_KEY ? 'SET' : 'NOT SET'));"
 node -e "console.log('[NODE_TEST] GROCY_ENABLE_SSL_VERIFY: ' + process.env.GROCY_ENABLE_SSL_VERIFY);"
 node -e "console.log('[NODE_TEST] REST_RESPONSE_SIZE_LIMIT: ' + process.env.REST_RESPONSE_SIZE_LIMIT);"
 node -e "console.log('[NODE_TEST] ENABLE_HTTP_SERVER: ' + process.env.ENABLE_HTTP_SERVER);"

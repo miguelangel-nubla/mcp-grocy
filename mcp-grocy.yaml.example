@@ -9,7 +9,7 @@ server:
 # Grocy API Configuration  
 grocy:
   base_url: "http://localhost:9283"
-  # api_key: "your_api_key_here"  # Set via GROCY_APIKEY_VALUE env var
+  # api_key: "your_api_key_here"  # Set via GROCY_API_KEY env var
   enable_ssl_verify: true
   response_size_limit: 10000
 

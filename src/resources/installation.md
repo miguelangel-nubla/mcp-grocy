@@ -17,7 +17,7 @@ Edit `claude_desktop_config.json`(for Claude Desktop) or `.cursor/mcp.json`(for 
       ], 
       "env": {
         "GROCY_BASE_URL": "",
-        "GROCY_APIKEY_VALUE": "",
+        "GROCY_API_KEY": "",
         "GROCY_ENABLE_SSL_VERIFY": "False",
         "REST_RESPONSE_SIZE_LIMIT": "10000"
       }
@@ -41,7 +41,7 @@ Or you can use Docker:
         ],
       "env": {
         "GROCY_BASE_URL": "",
-        "GROCY_APIKEY_VALUE": "",
+        "GROCY_API_KEY": "",
         "GROCY_ENABLE_SSL_VERIFY": "False",
         "REST_RESPONSE_SIZE_LIMIT": "10000"
       }

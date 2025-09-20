@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development and Debugging
 - `npm run inspector` - Launch MCP inspector for debugging protocol interactions
-- Set `GROCY_BASE_URL` and `GROCY_APIKEY_VALUE` environment variables before starting
+- Set `GROCY_BASE_URL` and `GROCY_API_KEY` environment variables before starting
 - Use built executable: `./build/main.js` (runs from any directory after build)
 
 ### Scripts and Utilities
@@ -94,7 +94,7 @@ This is a **Model Context Protocol (MCP) server** that wraps the Grocy API, buil
 
 ### Authentication Model
 - **API Key Only**: Uses `GROCY-API-KEY` header
-- Environment variable: `GROCY_APIKEY_VALUE`
+- Environment variable: `GROCY_API_KEY`
 - No Basic Auth or Bearer token support (intentionally simplified)
 
 ### Configuration Files
@@ -127,7 +127,7 @@ tools:
 - **System**: 5 tools (locations, units, dev utilities)
 
 #### Environment Variables
-- `GROCY_APIKEY_VALUE` - Your Grocy API key (required)
+- `GROCY_API_KEY` - Your Grocy API key (required)
 - `GROCY_BASE_URL` - Grocy instance URL (optional, defaults from YAML)
 - `LOG_LEVEL` - Logging level (ERROR, WARN, INFO, DEBUG, TRACE)
 - `LOG_CATEGORIES` - Comma-separated category filter

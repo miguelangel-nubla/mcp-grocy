@@ -39,7 +39,7 @@ describe('ConfigManager', () => {
   });
 
   it('should parse API key from environment variables', async () => {
-    process.env.GROCY_APIKEY_VALUE = 'test-api-key-12345';
+    process.env.GROCY_API_KEY = 'test-api-key-12345';
     process.env.GROCY_BASE_URL = 'http://localhost:9283';
     
     const { existsSync } = await import('fs');
@@ -51,12 +51,12 @@ describe('ConfigManager', () => {
       })();
     const configData = config.getConfig();
     
-    expect(configData.env.GROCY_APIKEY_VALUE).toBe('test-api-key-12345');
+    expect(configData.env.GROCY_API_KEY).toBe('test-api-key-12345');
     expect(configData.env.GROCY_BASE_URL).toBe('http://localhost:9283');
   });
 
   it('should handle missing API key gracefully', async () => {
-    delete process.env.GROCY_APIKEY_VALUE;
+    delete process.env.GROCY_API_KEY;
     
     const { existsSync } = await import('fs');
     vi.mocked(existsSync).mockReturnValue(false);
@@ -67,7 +67,7 @@ describe('ConfigManager', () => {
         return new ConfigManagerClass();
       })();
       const configData = config.getConfig();
-      expect(configData.env.GROCY_APIKEY_VALUE).toBeUndefined();
+      expect(configData.env.GROCY_API_KEY).toBeUndefined();
     }).not.toThrow();
   });
 

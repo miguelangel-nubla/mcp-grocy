@@ -40,7 +40,7 @@ export interface ToolModule {
 // Configuration types
 export const ConfigSchema = z.object({
   env: z.object({
-    GROCY_APIKEY_VALUE: z.string().optional(),
+    GROCY_API_KEY: z.string().optional(),
     RELEASE_VERSION: z.string().optional(),
     NODE_ENV: z.enum(['development', 'production', 'test']).optional(),
   }),

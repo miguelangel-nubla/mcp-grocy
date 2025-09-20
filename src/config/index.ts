@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const EnvironmentSchema = z.object({
   // Grocy Configuration
   GROCY_BASE_URL: z.string().url().optional(),
-  GROCY_APIKEY_VALUE: z.string().optional(),
+  GROCY_API_KEY: z.string().optional(),
   GROCY_ENABLE_SSL_VERIFY: z.enum(['true', 'false']).optional(),
   
   // Server Configuration  
@@ -86,7 +86,7 @@ export class ConfigManager {
     // Expose final resolved values
     this.grocy = {
       base_url: this.config.yaml.grocy.base_url,
-      api_key: this.config.yaml.grocy.api_key,
+      ...(this.config.yaml.grocy.api_key !== undefined && { api_key: this.config.yaml.grocy.api_key }),
       enable_ssl_verify: this.config.yaml.grocy.enable_ssl_verify,
       response_size_limit: this.config.yaml.grocy.response_size_limit
     };
@@ -206,8 +206,8 @@ export class ConfigManager {
       yaml.grocy.base_url = env.GROCY_BASE_URL;
     }
     
-    if (env.GROCY_APIKEY_VALUE) {
-      yaml.grocy.api_key = env.GROCY_APIKEY_VALUE;
+    if (env.GROCY_API_KEY) {
+      yaml.grocy.api_key = env.GROCY_API_KEY;
     }
     
     if (env.GROCY_ENABLE_SSL_VERIFY !== undefined) {

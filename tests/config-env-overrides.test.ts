@@ -67,9 +67,9 @@ tools:
     });
   });
 
-  describe('GROCY_APIKEY_VALUE override', () => {
+  describe('GROCY_API_KEY override', () => {
     it('should set api_key in YAML when env var provided', () => {
-      process.env.GROCY_APIKEY_VALUE = 'test-api-key-12345';
+      process.env.GROCY_API_KEY = 'test-api-key-12345';
 
       const config = (() => {
         const ConfigManagerClass = ConfigManager as any;
@@ -91,7 +91,7 @@ tools:
     });
 
     it('should include API key in custom headers when set', () => {
-      process.env.GROCY_APIKEY_VALUE = 'header-test-key';
+      process.env.GROCY_API_KEY = 'header-test-key';
 
       const config = (() => {
         const ConfigManagerClass = ConfigManager as any;
@@ -226,7 +226,7 @@ tools:
   describe('Multiple environment variable overrides', () => {
     it('should apply all environment variable overrides correctly', () => {
       process.env.GROCY_BASE_URL = 'https://multi-test.example.com';
-      process.env.GROCY_APIKEY_VALUE = 'multi-test-key';
+      process.env.GROCY_API_KEY = 'multi-test-key';
       process.env.GROCY_ENABLE_SSL_VERIFY = 'false';
       process.env.REST_RESPONSE_SIZE_LIMIT = '50000';
       process.env.ENABLE_HTTP_SERVER = 'true';

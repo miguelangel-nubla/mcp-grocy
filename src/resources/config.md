@@ -9,7 +9,7 @@ Advanced configuration reference for the MCP Grocy server. For basic setup, see 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `GROCY_BASE_URL` | Your Grocy instance URL | `http://localhost:9283` | ✅ |
-| `GROCY_APIKEY_VALUE` | Your Grocy API key | - | ✅ |
+| `GROCY_API_KEY` | Your Grocy API key | - | ✅ |
 
 ### Optional Variables
 
@@ -77,7 +77,7 @@ Configuration examples for common use cases are provided in `mcp-grocy.yaml.exam
 ```bash
 # .env for development
 GROCY_BASE_URL=http://localhost:9283
-GROCY_APIKEY_VALUE=dev_api_key_here
+GROCY_API_KEY=dev_api_key_here
 GROCY_ENABLE_SSL_VERIFY=false
 REST_RESPONSE_SIZE_LIMIT=50000
 
@@ -90,7 +90,7 @@ HTTP_SERVER_PORT=8080
 ```bash
 # .env for production
 GROCY_BASE_URL=https://grocy.yourdomain.com
-GROCY_APIKEY_VALUE=secure_production_key
+GROCY_API_KEY=secure_production_key
 GROCY_ENABLE_SSL_VERIFY=true
 REST_RESPONSE_SIZE_LIMIT=20000
 ```

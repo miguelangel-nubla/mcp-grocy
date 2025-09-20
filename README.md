@@ -63,7 +63,7 @@ Transform your LLM into an intelligent household management assistant with focus
    
    # Configure
    cp .env.example .env
-   # Edit .env with your GROCY_BASE_URL and GROCY_APIKEY_VALUE
+   # Edit .env with your GROCY_BASE_URL and GROCY_API_KEY
    
    # Run
    docker compose up -d
@@ -74,7 +74,7 @@ Test with mock data (no real Grocy instance needed):
 ```bash
 # In .env file, any values work for mock mode
 GROCY_BASE_URL=http://mock
-GROCY_APIKEY_VALUE=mock
+GROCY_API_KEY=mock
 
 npm install && npm run dev
 ```
@@ -93,7 +93,7 @@ npm run build
 ### Docker
 
 ```bash
-docker run -e GROCY_APIKEY_VALUE=your_api_key -e GROCY_BASE_URL=http://your-grocy-instance ghcr.io/miguelangel-nubla/mcp-grocy:latest
+docker run -e GROCY_API_KEY=your_api_key -e GROCY_BASE_URL=http://your-grocy-instance ghcr.io/miguelangel-nubla/mcp-grocy:latest
 ```
 
 ### Docker Compose (Recommended)
@@ -126,19 +126,19 @@ docker compose up -d
 2. **Configure the server:**
    ```bash
    cp .env.example .env
-   # Edit .env with your GROCY_BASE_URL and GROCY_APIKEY_VALUE
+   # Edit .env with your GROCY_BASE_URL and GROCY_API_KEY
    ```
 
 3. **Essential variables:**
    - `GROCY_BASE_URL` - Your Grocy instance URL
-   - `GROCY_APIKEY_VALUE` - Your Grocy API key
+   - `GROCY_API_KEY` - Your Grocy API key
 
 ### Configuration Options
 
 | Method | Use Case | Command |
 |--------|----------|---------|
 | **`.env` file** | Recommended for most users | `cp .env.example .env` |
-| **Environment variables** | CI/CD, containers | `GROCY_BASE_URL=... GROCY_APIKEY_VALUE=... mcp-grocy` |
+| **Environment variables** | CI/CD, containers | `GROCY_BASE_URL=... GROCY_API_KEY=... mcp-grocy` |
 | **Tool configuration** | Customize functionality | Edit `tools` section in `mcp-grocy.yaml` |
 
 📖 **For complete configuration reference:** See [Configuration Guide](src/resources/config.md)
@@ -185,7 +185,7 @@ npm start
 - For HTTPS URLs, ensure SSL certificate is valid or disable verification with `GROCY_ENABLE_SSL_VERIFY=false`
 
 **"Invalid API key" or "Authentication failed"**
-- Verify your `GROCY_APIKEY_VALUE` is correct
+- Verify your `GROCY_API_KEY` is correct
 - Check that the API key exists in your Grocy instance (User Settings → API Keys)
 - Ensure the API key has proper permissions
 

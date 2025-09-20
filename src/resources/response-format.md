@@ -67,7 +67,7 @@ Configure your environment with the private demo details:
 
 ```
 GROCY_BASE_URL=https://your-name-xxxxx.demo.grocy.info
-GROCY_APIKEY_VALUE=your-private-api-key
+GROCY_API_KEY=your-private-api-key
 ```
 
 These values can be set in your `.env` file for local development or in your project configuration for production use.
@@ -79,7 +79,7 @@ These values can be set in your `.env` file for local development or in your pro
 - `method`: HTTP method used (e.g., GET, POST, PUT, DELETE).
 - `headers`: Request headers sent to the Grocy API. Sensitive headers like `GROCY-API-KEY` will have their values redacted.
 - `body`: Request body sent (if applicable, e.g., for POST/PUT requests).
-- `authMethod`: Authentication method used. For Grocy, this will typically be `apikey` if `GROCY_APIKEY_VALUE` is configured, or `none`.
+- `authMethod`: Authentication method used. For Grocy, this will typically be `apikey` if `GROCY_API_KEY` is configured, or `none`.
 
 ### Response Details (`response`)
 - `statusCode`: HTTP status code returned by the Grocy API (e.g., 200, 400, 401).
