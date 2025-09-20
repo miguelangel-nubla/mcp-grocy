@@ -6,7 +6,7 @@ export class ShoppingToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/shopping_list');
       return this.createSuccess(result, 'Shopping list retrieved successfully');
-    }, 'get shopping list');
+    });
   };
 
   public addShoppingListItem: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -23,7 +23,7 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       
       const result = await this.apiCall('/objects/shopping_list', 'POST', body);
       return this.createSuccess(result, 'Shopping list item added successfully');
-    }, 'add shopping list item');
+    });
   };
 
   public removeShoppingListItem: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -33,13 +33,13 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       
       const result = await this.apiCall(`/objects/shopping_list/${shoppingListItemId}`, 'DELETE');
       return this.createSuccess(result, 'Shopping list item removed successfully');
-    }, 'remove shopping list item');
+    });
   };
 
   public getShoppingLocations: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/shopping_locations');
       return this.createSuccess(result, 'Shopping locations retrieved successfully');
-    }, 'get shopping locations');
+    });
   };
 }

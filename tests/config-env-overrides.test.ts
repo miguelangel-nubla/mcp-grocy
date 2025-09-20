@@ -10,7 +10,7 @@ describe('ConfigManager Environment Variable Overrides', () => {
   beforeEach(async () => {
     // Clear environment
     process.env = { ...originalEnv };
-    
+
     // Create a temporary YAML config file for testing
     tempConfigPath = join('/tmp', `test-config-${Date.now()}.yaml`);
     const testYamlConfig = `
@@ -34,7 +34,7 @@ tools:
   afterEach(async () => {
     // Restore environment
     process.env = originalEnv;
-    
+
     // Clean up temp file
     try {
       await fs.unlink(tempConfigPath);
@@ -46,17 +46,23 @@ tools:
   describe('GROCY_BASE_URL override', () => {
     it('should use environment variable when provided', () => {
       process.env.GROCY_BASE_URL = 'https://my-grocy.example.com';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.base_url).toBe('https://my-grocy.example.com');
     });
 
     it('should fall back to YAML config when env var not set', () => {
-      const config = ConfigManager.createForTesting(tempConfigPath);
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.base_url).toBe('http://localhost:9283');
     });
   });
@@ -64,26 +70,35 @@ tools:
   describe('GROCY_APIKEY_VALUE override', () => {
     it('should set api_key in YAML when env var provided', () => {
       process.env.GROCY_APIKEY_VALUE = 'test-api-key-12345';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.api_key).toBe('test-api-key-12345');
     });
 
     it('should leave api_key undefined when env var not set', () => {
-      const config = ConfigManager.createForTesting(tempConfigPath);
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.api_key).toBeUndefined();
     });
 
     it('should include API key in custom headers when set', () => {
       process.env.GROCY_APIKEY_VALUE = 'header-test-key';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const headers = config.getCustomHeaders();
-      
+
       expect(headers['GROCY-API-KEY']).toBe('header-test-key');
     });
   });
@@ -91,26 +106,35 @@ tools:
   describe('GROCY_ENABLE_SSL_VERIFY override', () => {
     it('should override to false when env var is "false"', () => {
       process.env.GROCY_ENABLE_SSL_VERIFY = 'false';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.enable_ssl_verify).toBe(false);
     });
 
     it('should override to true when env var is "true"', () => {
       process.env.GROCY_ENABLE_SSL_VERIFY = 'true';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.enable_ssl_verify).toBe(true);
     });
 
     it('should fall back to YAML config when env var not set', () => {
-      const config = ConfigManager.createForTesting(tempConfigPath);
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.enable_ssl_verify).toBe(true); // from YAML
     });
   });
@@ -118,17 +142,23 @@ tools:
   describe('REST_RESPONSE_SIZE_LIMIT override', () => {
     it('should override response size limit when env var provided', () => {
       process.env.REST_RESPONSE_SIZE_LIMIT = '25000';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.response_size_limit).toBe(25000);
     });
 
     it('should fall back to YAML config when env var not set', () => {
-      const config = ConfigManager.createForTesting(tempConfigPath);
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.grocy.response_size_limit).toBe(10000); // from YAML
     });
   });
@@ -136,26 +166,35 @@ tools:
   describe('ENABLE_HTTP_SERVER override', () => {
     it('should override to true when env var is "true"', () => {
       process.env.ENABLE_HTTP_SERVER = 'true';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.server.enable_http_server).toBe(true);
     });
 
     it('should override to false when env var is "false"', () => {
       process.env.ENABLE_HTTP_SERVER = 'false';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.server.enable_http_server).toBe(false);
     });
 
     it('should fall back to YAML config when env var not set', () => {
-      const config = ConfigManager.createForTesting(tempConfigPath);
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.server.enable_http_server).toBe(false); // from YAML
     });
   });
@@ -163,17 +202,23 @@ tools:
   describe('HTTP_SERVER_PORT override', () => {
     it('should override HTTP server port when env var provided', () => {
       process.env.HTTP_SERVER_PORT = '9090';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.server.http_server_port).toBe(9090);
     });
 
     it('should fall back to YAML config when env var not set', () => {
-      const config = ConfigManager.createForTesting(tempConfigPath);
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       expect(yaml.server.http_server_port).toBe(8080); // from YAML
     });
   });
@@ -186,10 +231,13 @@ tools:
       process.env.REST_RESPONSE_SIZE_LIMIT = '50000';
       process.env.ENABLE_HTTP_SERVER = 'true';
       process.env.HTTP_SERVER_PORT = '7070';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       // All overrides should be applied
       expect(yaml.grocy.base_url).toBe('https://multi-test.example.com');
       expect(yaml.grocy.api_key).toBe('multi-test-key');
@@ -203,14 +251,17 @@ tools:
       // Only set some environment variables
       process.env.GROCY_BASE_URL = 'https://partial-override.example.com';
       process.env.HTTP_SERVER_PORT = '6060';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { yaml } = config.getConfig();
-      
+
       // Overridden values
       expect(yaml.grocy.base_url).toBe('https://partial-override.example.com');
       expect(yaml.server.http_server_port).toBe(6060);
-      
+
       // YAML defaults preserved
       expect(yaml.grocy.api_key).toBeUndefined();
       expect(yaml.grocy.enable_ssl_verify).toBe(true);
@@ -222,19 +273,25 @@ tools:
   describe('API URL generation', () => {
     it('should generate correct API URL with environment override', () => {
       process.env.GROCY_BASE_URL = 'https://api-test.example.com';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const apiUrl = config.getApiUrl();
-      
+
       expect(apiUrl).toBe('https://api-test.example.com/api');
     });
 
     it('should handle base URL with trailing slash', () => {
       process.env.GROCY_BASE_URL = 'https://trailing-slash.example.com/';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const apiUrl = config.getApiUrl();
-      
+
       expect(apiUrl).toBe('https://trailing-slash.example.com/api');
     });
   });
@@ -242,47 +299,87 @@ tools:
   describe('Tool configuration preservation', () => {
     it('should preserve tool configuration when applying environment overrides', () => {
       process.env.GROCY_BASE_URL = 'https://tools-test.example.com';
-      
-      const config = ConfigManager.createForTesting(tempConfigPath);
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
       const { enabledTools, toolSubConfigs } = config.parseToolConfiguration();
       const { yaml } = config.getConfig();
-      
+
       // Tool configuration should be preserved
       expect(enabledTools.has('test_tool')).toBe(true);
-      
+
       // ack_token is stored in the YAML config, not in sub-configs
       expect(yaml.tools.test_tool?.ack_token).toBe('TEST_TOKEN');
       expect(yaml.tools.test_tool?.enabled).toBe(true);
-      
+
       // Since our test tool only has enabled and ack_token (both standard fields),
       // it won't have a sub-config entry because sub-configs only contain non-standard fields
       expect(toolSubConfigs.has('test_tool')).toBe(false);
     });
   });
 
-  describe('Invalid environment values', () => {
-    it('should handle invalid URL gracefully', () => {
-      process.env.GROCY_BASE_URL = 'not-a-valid-url';
+  describe('Environment variable validation', () => {
+    let processExitSpy: any;
+
+    // Helper function to set up baseline valid environment variables with optional overrides
+    const setupEnvironment = (overrides: Record<string, string> = {}) => {
+      const defaults = {
+        GROCY_BASE_URL: 'https://valid-url.com',
+        HTTP_SERVER_PORT: '8080',
+        REST_RESPONSE_SIZE_LIMIT: '10000'
+      };
       
-      expect(() => {
-        ConfigManager.createForTesting(tempConfigPath);
-      }).toThrow(); // Should throw due to Zod validation
+      Object.assign(process.env, defaults, overrides);
+    };
+
+    // Helper function to attempt ConfigManager creation
+    const attemptConfigCreation = () => {
+      const ConfigManagerClass = ConfigManager as any;
+      new ConfigManagerClass(tempConfigPath);
+    };
+
+    beforeEach(() => {
+      // Mock process.exit to prevent actual exit and capture calls
+      processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
     });
 
-    it('should handle invalid port numbers gracefully', () => {
-      process.env.HTTP_SERVER_PORT = 'not-a-number';
-      
-      expect(() => {
-        ConfigManager.createForTesting(tempConfigPath);
-      }).toThrow(); // Should throw due to Zod validation
+    afterEach(() => {
+      processExitSpy.mockRestore();
     });
 
-    it('should handle invalid response size limit gracefully', () => {
-      process.env.REST_RESPONSE_SIZE_LIMIT = 'not-a-number';
-      
-      expect(() => {
-        ConfigManager.createForTesting(tempConfigPath);
-      }).toThrow(); // Should throw due to Zod validation
+    it('should initialize successfully with valid environment variables', () => {
+      setupEnvironment();
+
+      expect(() => attemptConfigCreation()).not.toThrow();
+      expect(processExitSpy).not.toHaveBeenCalled();
+    });
+
+    it('should exit with code 1 when GROCY_BASE_URL is invalid', () => {
+      setupEnvironment({ GROCY_BASE_URL: 'not-a-valid-url' });
+
+      expect(() => attemptConfigCreation()).toThrow('process.exit called');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+      expect(processExitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should exit with code 1 when HTTP_SERVER_PORT is invalid', () => {
+      setupEnvironment({ HTTP_SERVER_PORT: 'not-a-number' });
+
+      expect(() => attemptConfigCreation()).toThrow('process.exit called');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+      expect(processExitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should exit with code 1 when REST_RESPONSE_SIZE_LIMIT is invalid', () => {
+      setupEnvironment({ REST_RESPONSE_SIZE_LIMIT: 'not-a-number' });
+
+      expect(() => attemptConfigCreation()).toThrow('process.exit called');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+      expect(processExitSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

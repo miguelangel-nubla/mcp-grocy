@@ -156,7 +156,7 @@ export class GrocyMcpServer {
         return result as CallToolResult;
       } catch (error: any) {
         ErrorHandler.logError(error, `tool: ${toolName}`);
-        throw ErrorHandler.toMcpError(error, `Tool execution failed: ${toolName}`);
+        throw ErrorHandler.toMcpError(error, `${toolName} failed`);
       }
     });
 
@@ -189,12 +189,11 @@ export class GrocyMcpServer {
     logger.info('MCP server running on stdio', 'SERVER');
 
     // Start HTTP/SSE if enabled
-    const { yaml } = config.getConfig();
-    if (yaml.server.enable_http_server) {
+    if (config.server.enable_http_server) {
       try {
-        logger.config(`Starting HTTP server on port ${yaml.server.http_server_port}`);
+        logger.config(`Starting HTTP server on port ${config.server.http_server_port}`);
         const serverFactory = () => this.server;
-        await startHttpServer(serverFactory, yaml.server.http_server_port);
+        await startHttpServer(serverFactory, config.server.http_server_port);
       } catch (error) {
         logger.error('Failed to start HTTP server', 'SERVER', { error });
         logger.error('HTTP server is explicitly enabled but cannot start - exiting', 'SERVER');

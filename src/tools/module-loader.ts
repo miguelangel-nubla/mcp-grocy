@@ -88,9 +88,8 @@ export class ModuleLoader {
     const moduleInfo: CachedModule = { loaded: false };
     
     try {
-      // Determine file extension
-      const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
-      const extension = isTestEnv ? '.ts' : '.js';
+      // Use .js extension for production builds
+      const extension = '.js';
       const indexPath = `./${folderName}/index${extension}`;
       
       const moduleIndex = await import(indexPath);
@@ -136,13 +135,6 @@ export class ModuleLoader {
     return cached?.toolModule;
   }
 
-  /**
-   * Clear cache (for testing)
-   */
-  static clearCache(): void {
-    this.moduleCache.clear();
-    this.discoveredFolders = null;
-  }
 
   /**
    * Get cache statistics

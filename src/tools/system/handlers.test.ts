@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SystemToolHandlers } from './handlers.js';
 
 // Mock API client
 vi.mock('../../api/client.js', () => ({
@@ -15,14 +14,46 @@ vi.mock('../../api/client.js', () => ({
   }
 }));
 
-// Mock config
-vi.mock('../../config/index.js', () => ({
-  config: {
-    getGrocyBaseUrl: vi.fn(() => 'http://localhost:9283'),
-    getCustomHeaders: vi.fn(() => ({})),
-    hasApiKey: vi.fn(() => true)
-  }
-}));
+// Mock config - create a real ConfigManager instance with test data
+vi.mock('../../config/index.js', async () => {
+  const actual = await vi.importActual('../../config/index.js');
+  
+  // Create a ConfigManager instance for testing with mock data  
+  const ConfigManagerClass = actual.ConfigManager as any;
+  const testConfig = new ConfigManagerClass();
+  
+  // Override the properties with test data - need to properly set the readonly properties
+  Object.defineProperty(testConfig, 'grocy', {
+    value: {
+      base_url: 'http://localhost:9283',
+      api_key: 'test-api-key',
+      enable_ssl_verify: true,
+      response_size_limit: 10000
+    },
+    writable: false,
+    configurable: true
+  });
+  
+  Object.defineProperty(testConfig, 'server', {
+    value: {
+      enable_http_server: false,
+      http_server_port: 8080
+    },
+    writable: false,
+    configurable: true
+  });
+  
+  Object.defineProperty(testConfig, 'tools', {
+    value: {},
+    writable: false,
+    configurable: true
+  });
+  
+  return {
+    ...actual,
+    config: testConfig
+  };
+});
 
 // Mock logger
 vi.mock('../../utils/logger.js', () => ({
@@ -30,10 +61,12 @@ vi.mock('../../utils/logger.js', () => ({
     error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
+    config: vi.fn()
   }
 }));
 
+import { SystemToolHandlers } from './handlers.js';
 import apiClient from '../../api/client.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
@@ -252,9 +285,8 @@ describe('SystemToolHandlers', () => {
 
   describe('testRequest', () => {
     beforeEach(() => {
-      mockConfig.getGrocyBaseUrl.mockReturnValue('http://localhost:9283');
-      mockConfig.getCustomHeaders.mockReturnValue({ 'X-Custom': 'header' });
-      mockConfig.hasApiKey.mockReturnValue(true);
+      // Reset mocks
+      vi.clearAllMocks();
     });
 
     it('should perform successful test request', async () => {
@@ -273,7 +305,7 @@ describe('SystemToolHandlers', () => {
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/products', {
         method: 'GET',
         body: undefined,
-        headers: {}
+        headers: { 'GROCY-API-KEY': 'test-api-key' }
       });
       expect(result.isError).toBeUndefined();
       

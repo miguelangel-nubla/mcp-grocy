@@ -64,9 +64,39 @@ export interface Config {
 export class ConfigManager {
   private static instance: ConfigManager;
   private config: Config;
+  
+  // Unified config properties - final resolved values
+  public readonly grocy: {
+    base_url: string;
+    api_key?: string;
+    enable_ssl_verify: boolean;
+    response_size_limit: number;
+  };
+  
+  public readonly server: {
+    enable_http_server: boolean;
+    http_server_port: number;
+  };
+  
+  public readonly tools: Record<string, any>;
 
   private constructor(configPath?: string) {
     this.config = this.loadConfig(configPath);
+    
+    // Expose final resolved values
+    this.grocy = {
+      base_url: this.config.yaml.grocy.base_url,
+      api_key: this.config.yaml.grocy.api_key,
+      enable_ssl_verify: this.config.yaml.grocy.enable_ssl_verify,
+      response_size_limit: this.config.yaml.grocy.response_size_limit
+    };
+    
+    this.server = {
+      enable_http_server: this.config.yaml.server.enable_http_server,
+      http_server_port: this.config.yaml.server.http_server_port
+    };
+    
+    this.tools = this.config.yaml.tools;
   }
 
   public static getInstance(): ConfigManager {
@@ -76,9 +106,7 @@ export class ConfigManager {
     return ConfigManager.instance;
   }
 
-  public static createForTesting(configPath?: string): ConfigManager {
-    return new ConfigManager(configPath);
-  }
+
 
   private loadConfig(configPath?: string): Config {
     // Load environment variables
@@ -158,14 +186,13 @@ export class ConfigManager {
   }
 
   public getApiUrl(): string {
-    const baseUrl = this.config.yaml.grocy.base_url;
-    return baseUrl.endsWith('/') ? `${baseUrl}api` : `${baseUrl}/api`;
+    return this.grocy.base_url.endsWith('/') ? `${this.grocy.base_url}api` : `${this.grocy.base_url}/api`;
   }
 
   public getCustomHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
-    if (this.config.yaml.grocy.api_key) {
-      headers['GROCY-API-KEY'] = this.config.yaml.grocy.api_key;
+    if (this.grocy.api_key) {
+      headers['GROCY-API-KEY'] = this.grocy.api_key;
     }
     return headers;
   }

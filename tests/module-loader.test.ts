@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ModuleLoader } from '../src/tools/module-loader.js';
+import { TestModuleLoader } from './test-helpers.js';
 
 describe('ModuleLoader', () => {
   beforeEach(() => {
-    ModuleLoader.clearCache();
+    TestModuleLoader.clearCache();
   });
 
   afterEach(() => {
-    ModuleLoader.clearCache();
+    TestModuleLoader.clearCache();
   });
 
   it('should load all available tool modules', async () => {

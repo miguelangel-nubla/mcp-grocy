@@ -32,7 +32,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const filteredRecipes = this.filterFields(recipes, fieldList);
       
       return this.createSuccess(filteredRecipes);
-    }, 'get recipes');
+    });
   };
 
   /**
@@ -48,7 +48,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const recipe = await this.apiCall(`/objects/recipes/${id}`);
       
       return this.createSuccess(recipe);
-    }, 'get recipe by ID');
+    });
   };
 
   /**
@@ -64,7 +64,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const fulfillment = await this.apiCall(`/recipes/${id}/fulfillment`);
       
       return this.createSuccess(fulfillment);
-    }, 'get recipe fulfillment');
+    });
   };
 
   /**
@@ -86,7 +86,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const result = await this.apiCall('/objects/meal_plan', 'POST', mealPlanData);
       
       return this.createSuccess(result, 'Recipe added to meal plan successfully');
-    }, 'add recipe to meal plan');
+    });
   };
 
   /**
@@ -116,7 +116,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
         servings: servingCount,
         result
       }, `Recipe "${recipe.name}" cooked successfully`);
-    }, 'cook recipe');
+    });
   };
 
   /**
@@ -132,7 +132,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const nutrition = await this.apiCall(`/recipes/${id}/nutrition`);
       
       return this.createSuccess(nutrition);
-    }, 'get recipe nutrition');
+    });
   };
 
   /**
@@ -164,7 +164,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const result = this.filterFields(filtered, fieldList);
       
       return this.createSuccess(result);
-    }, 'search recipes');
+    });
   };
 
   // ==================== MEAL PLANNING METHODS ====================
@@ -207,7 +207,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/objects/meal_plan`, 'GET', undefined, { queryParams: Object.fromEntries(params) });
       return this.createSuccess(result, 'Meal plan retrieved successfully');
-    }, 'get meal plan');
+    });
   };
 
   /**
@@ -217,7 +217,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/meal_plan_sections');
       return this.createSuccess(result, 'Meal plan sections retrieved successfully');
-    }, 'get meal plan sections');
+    });
   };
 
   /**
@@ -230,7 +230,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'DELETE');
       return this.createSuccess(result, 'Recipe deleted from meal plan successfully');
-    }, 'delete recipe from meal plan');
+    });
   };
 
   // ==================== RECIPE CREATION ====================
@@ -255,7 +255,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const result = await this.apiCall('/objects/recipes', 'POST', recipeData);
       
       return this.createSuccess(result, `Recipe "${name}" created successfully`);
-    }, 'create recipe');
+    });
   };
 
   // ==================== RECIPE FULFILLMENT ====================
@@ -268,7 +268,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const fulfillment = await this.apiCall('/recipes/fulfillment');
       
       return this.createSuccess(fulfillment);
-    }, 'get all recipe fulfillment');
+    });
   };
 
   // ==================== RECIPE CONSUMPTION ====================
@@ -292,7 +292,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const result = await this.apiCall('/recipes/consume', 'POST', consumeData);
       
       return this.createSuccess(result, `Recipe consumed (${servingCount} servings)`);
-    }, 'consume recipe');
+    });
   };
 
   // ==================== RECIPE SHOPPING INTEGRATION ====================
@@ -310,7 +310,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const result = await this.apiCall(`/recipes/${id}/add-all-ingredients-to-shopping-list`, 'POST');
       
       return this.createSuccess(result, 'All recipe products added to shopping list');
-    }, 'add all recipe products to shopping');
+    });
   };
 
   /**
@@ -326,7 +326,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const result = await this.apiCall(`/recipes/${id}/add-not-fulfilled-products-to-shopping-list`, 'POST');
       
       return this.createSuccess(result, 'Missing recipe products added to shopping list');
-    }, 'add missing recipe products to shopping');
+    });
   };
 
   // ==================== COOKING METHODS ====================
@@ -496,6 +496,6 @@ export class RecipeToolHandlers extends BaseToolHandler {
         stockEntries,
         completedSteps
       });
-    }, 'cook recipe with meal plan');
+    });
   };
 }

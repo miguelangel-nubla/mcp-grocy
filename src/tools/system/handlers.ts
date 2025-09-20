@@ -12,21 +12,21 @@ export class SystemToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/locations');
       return this.createSuccess(data);
-    }, 'get locations');
+    });
   };
 
   public getQuantityUnits: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/quantity_units');
       return this.createSuccess(data);
-    }, 'get quantity units');
+    });
   };
 
   public getUsers: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/users');
       return this.createSuccess(data);
-    }, 'get users');
+    });
   };
 
   // ==================== DEVELOPER UTILITIES ====================
@@ -68,18 +68,17 @@ export class SystemToolHandlers extends BaseToolHandler {
       const response = await apiClient.request(normalizedEndpoint, {
         method,
         body,
-        headers
+        headers: { ...config.getCustomHeaders(), ...headers }
       });
       const endTime = Date.now();
       
-      const { yaml } = config.getConfig();
-      const responseObj = {
+            const responseObj = {
         request: {
-          url: `${yaml.grocy.base_url}${normalizedEndpoint}`,
+          url: `${config.grocy.base_url}${normalizedEndpoint}`,
           method,
           headers: { ...config.getCustomHeaders(), ...headers },
           body,
-          authMethod: yaml.grocy.api_key ? 'apikey' : 'none'
+          authMethod: config.grocy.api_key ? 'apikey' : 'none'
         },
         response: {
           statusCode: response.status,
@@ -97,10 +96,9 @@ export class SystemToolHandlers extends BaseToolHandler {
 
       return this.createSuccess(responseObj);
     } catch (error: any) {
-      const { yaml } = config.getConfig();
-      return this.createError(`Test request failed: ${error.message}`, {
+            return this.createError(`Test request failed: ${error.message}`, {
         request: {
-          url: `${yaml.grocy.base_url}${normalizedEndpoint}`,
+          url: `${config.grocy.base_url}${normalizedEndpoint}`,
           method,
           headers: { ...config.getCustomHeaders(), ...headers },
           body

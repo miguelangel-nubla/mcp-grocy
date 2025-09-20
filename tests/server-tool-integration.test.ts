@@ -2,11 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createToolRegistry } from '../src/tools/index.js';
 import { config } from '../src/config/index.js';
 import { ModuleLoader } from '../src/tools/module-loader.js';
+import { TestModuleLoader } from './test-helpers.js';
 
 describe('Server Tool Integration', () => {
   beforeEach(() => {
     // Reset any module caches
-    ModuleLoader.clearCache();
+    TestModuleLoader.clearCache();
   });
 
   it('should have all configured tools available in tool registry', async () => {

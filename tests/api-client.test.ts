@@ -22,26 +22,22 @@ vi.mock('axios', () => ({
 import axios from 'axios';
 const mockedAxios = vi.mocked(axios);
 
-import { GrocyApiClient, ApiError } from '../src/api/client.js';
-
 // Mock the main config
 vi.mock('../src/config/index.js', () => ({
   config: {
-    getGrocyBaseUrl: () => 'http://localhost:9283',
-    getApiUrl: () => 'http://localhost:9283/api',
-    getApiKey: () => 'test-api-key',
-    getCustomHeaders: () => ({}),
-    hasApiKeyAuth: () => true,
-    getConfig: () => ({
-      yaml: {
-        grocy: {
-          enable_ssl_verify: true,
-          response_size_limit: 10000
-        }
-      }
+    grocy: {
+      base_url: 'http://localhost:9283',
+      api_key: 'test-api-key',
+      enable_ssl_verify: true,
+      response_size_limit: 10000
+    },
+    getCustomHeaders: () => ({
+      'GROCY-API-KEY': 'test-api-key'
     })
   }
 }));
+
+import { GrocyApiClient, ApiError } from '../src/api/client.js';
 
 describe('GrocyApiClient', () => {
   let client: GrocyApiClient;
@@ -101,7 +97,8 @@ describe('GrocyApiClient', () => {
         url: '/api/test/endpoint',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'GROCY-API-KEY': 'test-api-key'
         }
       });
 

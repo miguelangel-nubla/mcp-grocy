@@ -32,20 +32,18 @@ export class GrocyApiClient {
   }
 
   private createAxiosInstance(): AxiosInstance {
-    const { yaml } = config.getConfig();
-    
     const instance = axios.create({
-      baseURL: yaml.grocy.base_url,
+      baseURL: config.grocy.base_url,
       validateStatus: () => true, // Handle all status codes manually
       timeout: 30000,
-      httpsAgent: yaml.grocy.enable_ssl_verify ? undefined : new https.Agent({
+      httpsAgent: config.grocy.enable_ssl_verify ? undefined : new https.Agent({
         rejectUnauthorized: false
       })
     });
 
     // Set default authentication
-    if (yaml.grocy.api_key) {
-      instance.defaults.headers.common[this.API_KEY_HEADER] = yaml.grocy.api_key;
+    if (config.grocy.api_key) {
+      instance.defaults.headers.common[this.API_KEY_HEADER] = config.grocy.api_key;
     }
 
     return instance;

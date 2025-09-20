@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ModuleLoader } from '../src/tools/module-loader.js';
+import { TestModuleLoader } from './test-helpers.js';
 
 describe('Production Module Loading', () => {
   beforeEach(() => {
-    ModuleLoader.clearCache();
+    TestModuleLoader.clearCache();
   });
 
   it('should load recipe module from built JavaScript files', async () => {

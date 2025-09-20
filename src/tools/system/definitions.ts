@@ -57,7 +57,7 @@ export const systemToolDefinitions = [
   },
   {
     name: 'system_dev_test_request',
-    description: `[SYSTEM/DEV] Test a REST API endpoint and get detailed response information. Base URL: ${config.getConfig().yaml.grocy.base_url} | SSL Verification enabled | Authentication: ${config.getConfig().yaml.grocy.api_key ? 'API Key using header: GROCY-API-KEY' : 'No authentication configured'}`,
+    description: `[SYSTEM/DEV] Test a REST API endpoint and get detailed response information. Base URL: ${config.grocy.base_url} | SSL Verification enabled | Authentication: ${config.grocy.api_key ? 'API Key using header: GROCY-API-KEY' : 'No authentication configured'}`,
     inputSchema: {
       type: 'object' as const,
       properties: {

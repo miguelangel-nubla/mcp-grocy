@@ -23,14 +23,14 @@ export class InventoryToolHandlers extends BaseToolHandler {
       // Filter to only include requested fields
       const filteredProducts = this.filterFields(products, fieldList);
       return this.createSuccess(filteredProducts);
-    }, 'get products');
+    });
   };
 
   public getProductGroups: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/product_groups');
       return this.createSuccess(data);
-    }, 'get product groups');
+    });
   };
 
   public getPriceHistory: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -40,7 +40,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
       
       const data = await this.apiCall(`/stock/products/${productId}/price-history`);
       return this.createSuccess(data);
-    }, 'get price history');
+    });
   };
 
   // ==================== STOCK QUERIES ====================
@@ -49,7 +49,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/stock');
       return this.createSuccess(data);
-    }, 'get all stock');
+    });
   };
 
   public getStockByProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -71,7 +71,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
         : [];
 
       return this.createSuccess(filteredEntries);
-    }, 'get stock by product');
+    });
   };
 
   public getStockVolatile: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -79,7 +79,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
       const queryParams = args?.includeDetails ? { include_details: 'true' } : {};
       const data = await this.apiCall('/stock/volatile', 'GET', undefined, { queryParams });
       return this.createSuccess(data);
-    }, 'get volatile stock');
+    });
   };
 
   public getStockByLocation: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -91,7 +91,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
         queryParams: { 'query[]': `location_id=${locationId}` }
       });
       return this.createSuccess(data);
-    }, 'get stock by location');
+    });
   };
 
   // ==================== STOCK TRANSACTIONS ====================
@@ -109,7 +109,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/products/${productId}/add`, 'POST', body);
       return this.createSuccess(result, 'Product purchased successfully');
-    }, 'purchase product');
+    });
   };
 
   public consumeProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -127,7 +127,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/products/${productId}/consume`, 'POST', body);
       return this.createSuccess(result, 'Product consumed successfully');
-    }, 'consume product');
+    });
   };
 
   public transferProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -147,7 +147,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/products/${productId}/transfer`, 'POST', body);
       return this.createSuccess(result, 'Product transferred successfully');
-    }, 'transfer product');
+    });
   };
 
   public inventoryProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -162,7 +162,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/products/${productId}/inventory`, 'POST', body);
       return this.createSuccess(result, 'Product inventory updated successfully');
-    }, 'inventory product');
+    });
   };
 
   public openProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -175,7 +175,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/products/${productId}/open`, 'POST', body);
       return this.createSuccess(result, 'Product opened successfully');
-    }, 'open product');
+    });
   };
 
   public lookupProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -298,7 +298,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
         allAvailableLocations: locations.map((l: any) => ({ id: l.id, name: l.name })),
         instructions: 'Review the matches above. Use the exact productId and locationId from this data for any product operations (consume_product, purchase_product, inventory_product, transfer_product, etc.).'
       });
-    }, 'lookup product');
+    });
   };
 
   public printStockEntryLabel: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -317,6 +317,6 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/entry/${stockId}/printlabel`);
       return this.createSuccess(result, 'Stock entry label printed successfully');
-    }, 'print stock entry label');
+    });
   };
 }

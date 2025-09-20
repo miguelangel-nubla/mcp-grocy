@@ -8,7 +8,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/chores');
       return this.createSuccess(data);
-    }, 'get chores');
+    });
   };
 
   public trackChoreExecution: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -25,7 +25,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
       
       const result = await this.apiCall(`/chores/${choreId}/execute`, 'POST', body);
       return this.createSuccess(result, 'Chore execution tracked successfully');
-    }, 'track chore execution');
+    });
   };
 
   // ==================== TASK MANAGEMENT ====================
@@ -34,7 +34,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/tasks');
       return this.createSuccess(data);
-    }, 'get tasks');
+    });
   };
 
   public completeTask: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -44,7 +44,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
       
       const result = await this.apiCall(`/tasks/${taskId}/complete`, 'POST', note ? { note } : {});
       return this.createSuccess(result, 'Task completed successfully');
-    }, 'complete task');
+    });
   };
 
   // ==================== BATTERY MANAGEMENT ====================
@@ -53,7 +53,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/batteries');
       return this.createSuccess(data);
-    }, 'get batteries');
+    });
   };
 
   public chargeBattery: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -69,7 +69,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
       
       const result = await this.apiCall(`/batteries/${batteryId}/charge`, 'POST', body);
       return this.createSuccess(result, 'Battery charged successfully');
-    }, 'charge battery');
+    });
   };
 
   // ==================== EQUIPMENT MANAGEMENT ====================
@@ -78,7 +78,7 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const data = await this.apiCall('/objects/equipment');
       return this.createSuccess(data);
-    }, 'get equipment');
+    });
   };
 
   // ==================== ACTION UTILITIES ====================
@@ -108,6 +108,6 @@ export class HouseholdToolHandlers extends BaseToolHandler {
       
       const result = await this.apiCall(endpoint, 'POST');
       return this.createSuccess(result, `${entityType} action undone successfully`);
-    }, 'undo action');
+    });
   };
 }

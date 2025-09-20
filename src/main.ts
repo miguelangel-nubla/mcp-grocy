@@ -19,18 +19,15 @@ logger.info(`Starting ${SERVER_NAME} v${VERSION}`, 'SERVER');
 
 async function main(): Promise<void> {
   return ErrorHandler.handleAsync(async () => {
-    // Validate configuration
-    const cfg = config.getConfig();
-    
     // Check API key
-    if (!cfg.yaml.grocy.api_key) {
+    if (!config.grocy.api_key) {
       logger.warn('No API key configured. Some operations may fail.', 'CONFIG');
     }
     
     // Log configuration summary
-    logger.config(`Grocy URL: ${cfg.yaml.grocy.base_url}`);
-    logger.config(`SSL Verify: ${cfg.yaml.grocy.enable_ssl_verify}`);
-    logger.config(`HTTP Server: ${cfg.yaml.server.enable_http_server}`);
+    logger.config(`Grocy URL: ${config.grocy.base_url}`);
+    logger.config(`SSL Verify: ${config.grocy.enable_ssl_verify}`);
+    logger.config(`HTTP Server: ${config.server.enable_http_server}`);
     
     // Create and start server
     const server = await GrocyMcpServer.create();

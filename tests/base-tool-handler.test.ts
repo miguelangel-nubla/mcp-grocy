@@ -44,8 +44,8 @@ class TestToolHandler extends BaseToolHandler {
     return this.validateRequired(params, required);
   }
 
-  public testExecuteToolHandler(handler: () => Promise<any>, operation: string) {
-    return this.executeToolHandler(handler, operation);
+  public testExecuteToolHandler(handler: () => Promise<any>) {
+    return this.executeToolHandler(handler);
   }
 }
 
@@ -243,7 +243,7 @@ describe('BaseToolHandler', () => {
       const mockData = { success: true };
       const mockHandler = vi.fn().mockResolvedValue(handler.testCreateSuccess(mockData));
       
-      const result = await handler.testExecuteToolHandler(mockHandler, 'test operation');
+      const result = await handler.testExecuteToolHandler(mockHandler);
       
       expect(mockHandler).toHaveBeenCalled();
       expect(result).toEqual({
@@ -264,12 +264,12 @@ describe('BaseToolHandler', () => {
       const mockError = new Error('Test error');
       const mockHandler = vi.fn().mockRejectedValue(mockError);
       
-      const result = await handler.testExecuteToolHandler(mockHandler, 'test operation');
+      const result = await handler.testExecuteToolHandler(mockHandler);
       
       expect(result).toEqual({
         content: [{
           type: 'text',
-          text: 'Error: test operation failed: Test error'
+          text: 'Error: Tool execution failed: Test error'
         }],
         isError: true
       });

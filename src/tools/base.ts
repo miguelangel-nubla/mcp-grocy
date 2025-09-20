@@ -86,20 +86,19 @@ export abstract class BaseToolHandler {
    * Handle tool execution with standardized error handling
    */
   protected async executeToolHandler(
-    handler: () => Promise<ToolResult>,
-    operation: string
+    handler: () => Promise<ToolResult>
   ): Promise<ToolResult> {
     try {
       return await handler();
     } catch (error) {
-      ErrorHandler.logError(error, operation);
+      ErrorHandler.logError(error, 'tool execution');
       
       if (error instanceof ValidationError) {
         return this.createError(error.message);
       }
       
       const message = error instanceof Error ? error.message : 'Internal error';
-      return this.createError(`${operation} failed: ${message}`);
+      return this.createError(`Tool execution failed: ${message}`);
     }
   }
 
