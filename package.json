@@ -1,6 +1,6 @@
 {
   "name": "mcp-grocy",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "description": "Model Context Protocol (MCP) server for Grocy integration",
   "license": "MIT",
   "type": "module",
