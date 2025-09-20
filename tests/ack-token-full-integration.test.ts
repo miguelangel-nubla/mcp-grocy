@@ -134,7 +134,7 @@ tools:
     if (!result.isError) {
       const ackToken = serverAckTokens.get('system_users_get');
       if (ackToken) {
-        result.content.push({
+        result.content.unshift({
           type: 'text' as const,
           text: `Acknowledgment token: ${ackToken}`
         });
@@ -143,8 +143,8 @@ tools:
     
     // Verify the ack_token was added
     expect(result.content).toHaveLength(2);
-    expect(result.content[0].text).toBe('Users retrieved successfully');
-    expect(result.content[1].text).toBe('Acknowledgment token: TEST_INTEGRATION_TOKEN_789');
+    expect(result.content[0].text).toBe('Acknowledgment token: TEST_INTEGRATION_TOKEN_789');
+    expect(result.content[1].text).toBe('Users retrieved successfully');
     
     console.log('✅ Full integration test passed: ack_token functionality works end-to-end');
   });
@@ -191,7 +191,7 @@ tools:
     if (!result.isError) {
       const ackToken = serverAckTokens.get('inventory_products_get');
       if (ackToken) {
-        result.content.push({
+        result.content.unshift({
           type: 'text' as const,
           text: `Acknowledgment token: ${ackToken}`
         });

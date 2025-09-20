@@ -16,7 +16,7 @@ describe('Acknowledgment Token Logic', () => {
     if (!result.isError && subConfigs) {
       const ackToken = subConfigs.get('ack_token');
       if (ackToken && typeof ackToken === 'string') {
-        result.content.push({
+        result.content.unshift({
           type: 'text' as const,
           text: `Acknowledgment token: ${ackToken}`
         });
@@ -25,9 +25,9 @@ describe('Acknowledgment Token Logic', () => {
 
     // Verify the result includes the acknowledgment token
     expect(result.content).toHaveLength(3);
-    expect(result.content[0].text).toBe('Operation completed successfully');
-    expect(result.content[1].text).toBe('{"result": "success"}');
-    expect(result.content[2].text).toBe('Acknowledgment token: TEST_ACKNOWLEDGMENT_TOKEN');
+    expect(result.content[0].text).toBe('Acknowledgment token: TEST_ACKNOWLEDGMENT_TOKEN');
+    expect(result.content[1].text).toBe('Operation completed successfully');
+    expect(result.content[2].text).toBe('{"result": "success"}');
   });
 
   it('should not add acknowledgment token when not configured', () => {
@@ -44,7 +44,7 @@ describe('Acknowledgment Token Logic', () => {
     if (!result.isError && subConfigs) {
       const ackToken = subConfigs.get('ack_token');
       if (ackToken && typeof ackToken === 'string') {
-        result.content.push({
+        result.content.unshift({
           type: 'text' as const,
           text: `Acknowledgment token: ${ackToken}`
         });
@@ -71,7 +71,7 @@ describe('Acknowledgment Token Logic', () => {
     if (!result.isError && subConfigs) {
       const ackToken = subConfigs.get('ack_token');
       if (ackToken && typeof ackToken === 'string') {
-        result.content.push({
+        result.content.unshift({
           type: 'text' as const,
           text: `Acknowledgment token: ${ackToken}`
         });
