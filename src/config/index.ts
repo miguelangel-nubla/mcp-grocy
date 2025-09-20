@@ -230,14 +230,21 @@ export class ConfigManager {
 
   public parseToolConfiguration(): { 
     enabledTools: Set<string>, 
-    toolSubConfigs: Map<string, Map<string, any>>
+    toolSubConfigs: Map<string, Map<string, any>>,
+    toolAckTokens: Map<string, string>
   } {
     const enabledTools = new Set<string>();
     const toolSubConfigs = new Map<string, Map<string, any>>();
+    const toolAckTokens = new Map<string, string>();
 
     for (const [toolName, toolConfig] of Object.entries(this.config.yaml.tools)) {
       if (toolConfig.enabled) {
         enabledTools.add(toolName);
+        
+        // Store ack_token separately if configured
+        if (toolConfig.ack_token && typeof toolConfig.ack_token === 'string') {
+          toolAckTokens.set(toolName, toolConfig.ack_token);
+        }
         
         // Extract sub-configs (everything except standard fields)
         const subConfigs = new Map<string, any>();
@@ -253,7 +260,7 @@ export class ConfigManager {
       }
     }
 
-    return { enabledTools, toolSubConfigs };
+    return { enabledTools, toolSubConfigs, toolAckTokens };
   }
 }
 

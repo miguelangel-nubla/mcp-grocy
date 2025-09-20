@@ -33,6 +33,7 @@ export class GrocyMcpServer {
   private server: Server;
   private enabledTools = new Set<string>();
   private toolSubConfigs = new Map<string, Map<string, any>>();
+  private toolAckTokens = new Map<string, string>();
   private resourceHandler: ResourceHandler;
   private toolRegistry: ToolRegistry;
 
@@ -77,8 +78,9 @@ export class GrocyMcpServer {
   }
 
   private parseToolConfiguration(): void {
-    const { enabledTools, toolSubConfigs } = config.parseToolConfiguration();
+    const { enabledTools, toolSubConfigs, toolAckTokens } = config.parseToolConfiguration();
     this.toolSubConfigs = toolSubConfigs;
+    this.toolAckTokens = toolAckTokens;
     
     // Validate tool names
     const validToolNames = new Set(this.toolRegistry.getToolNames());
@@ -143,9 +145,9 @@ export class GrocyMcpServer {
         const result = await handler(args, subConfigs);
         
         // Automatically add ack_token to successful responses
-        if (!result.isError && subConfigs) {
-          const ackToken = subConfigs.get('ack_token');
-          if (ackToken && typeof ackToken === 'string') {
+        if (!result.isError) {
+          const ackToken = this.toolAckTokens.get(toolName);
+          if (ackToken) {
             result.content.push({
               type: 'text' as const,
               text: `Acknowledgment token: ${ackToken}`
