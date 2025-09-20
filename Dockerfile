@@ -53,6 +53,7 @@ RUN if echo "$BUILD_FROM" | grep -q "home-assistant"; then \
 
 RUN npm run build
 
+
 # --- Entrypoint & Command ---
 # For Home Assistant addon builds, the entrypoint is /init (from S6-Overlay in the base image).
 # CMD is also typically handled by S6 services defined in rootfs.
