@@ -57,7 +57,6 @@ RUN npm run build
 # Non-sensitive environment configuration (endpoints & settings)
 ENV GROCY_BASE_URL=""
 # API key should be passed at runtime, not built into image
-ENV GROCY_APIKEY_VALUE=""
 ENV GROCY_ENABLE_SSL_VERIFY="true"
 ENV REST_RESPONSE_SIZE_LIMIT="10mb"
 ENV ENABLE_HTTP_SERVER="true"
