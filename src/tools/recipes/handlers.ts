@@ -11,6 +11,30 @@ export class RecipeToolHandlers extends BaseToolHandler {
   private inventoryHandlers = new InventoryToolHandlers();
 
   /**
+   * Helper method to get meal plan for multiple days
+   */
+  private async getMealPlanForDays(dates: Date[]): Promise<any[]> {
+    const allResults: any[] = [];
+    
+    for (const date of dates) {
+      const dayString = date.toISOString().split('T')[0]!;
+      
+      const dayResult = await this.apiCall(`/objects/meal_plan`, 'GET', undefined, {
+        queryParams: { 
+          'query[]': `day=${dayString}`,
+          order: 'day'
+        }
+      });
+      
+      if (Array.isArray(dayResult)) {
+        allResults.push(...dayResult);
+      }
+    }
+    
+    return allResults;
+  }
+
+  /**
    * Get recipes with specified fields
    */
   public getRecipes: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -178,37 +202,93 @@ export class RecipeToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const { date, weekly } = args || {};
 
-      // Build query parameters for meal plan with context
-      const params = new URLSearchParams({ 
-        force_today: '1',
-        order: 'day',
-        limit: weekly ? '14' : '3',
-        offset: weekly ? '-7' : '-1'
-      });
-
-      if (date) {
-        const targetDate = new Date(date);
-        if (isNaN(targetDate.getTime())) {
-          throw new Error('Invalid date format. Use YYYY-MM-DD.');
-        }
-        
-        if (weekly) {
-          // For weekly view, get the start of the week (Monday)
-          const dayOfWeek = targetDate.getDay();
-          const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-          const startOfWeek = new Date(targetDate);
-          startOfWeek.setDate(targetDate.getDate() + mondayOffset);
-          params.set('dates[0]', startOfWeek.toISOString().split('T')[0]!);
-        } else {
-          // Get the day before for context
-          const dayBefore = new Date(targetDate);
-          dayBefore.setDate(targetDate.getDate() - 1);
-          params.set('dates[0]', dayBefore.toISOString().split('T')[0]!);
-        }
+      // Date parameter is mandatory
+      this.validateRequired({ date }, ['date']);
+      
+      const targetDate = new Date(date);
+      if (isNaN(targetDate.getTime())) {
+        throw new Error('Invalid date format. Use YYYY-MM-DD.');
       }
 
-      const result = await this.apiCall(`/objects/meal_plan`, 'GET', undefined, { queryParams: Object.fromEntries(params) });
-      return this.createSuccess(result, 'Meal plan retrieved successfully');
+      const datesToQuery: Date[] = [];
+      
+      if (weekly) {
+        // For weekly view, get the start of the week (Monday)
+        const dayOfWeek = targetDate.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const startDate = new Date(targetDate);
+        startDate.setDate(targetDate.getDate() + mondayOffset);
+        
+        // Get all 7 days of the week with ±1 day buffer for timezone issues
+        for (let i = -1; i <= 7; i++) {
+          const day = new Date(startDate);
+          day.setDate(startDate.getDate() + i);
+          datesToQuery.push(day);
+        }
+      } else {
+        // Get the specific date with ±1 day buffer for timezone issues
+        const dayBefore = new Date(targetDate);
+        dayBefore.setDate(targetDate.getDate() - 1);
+        
+        const dayAfter = new Date(targetDate);
+        dayAfter.setDate(targetDate.getDate() + 1);
+        
+        datesToQuery.push(dayBefore, targetDate, dayAfter);
+      }
+
+      const result = await this.getMealPlanForDays(datesToQuery);
+      
+      if (result.length === 0) {
+        return this.createSuccess({
+          message: weekly ? 'No meals planned for the requested week' : 'No meals planned for the requested date',
+          meal_plan_by_date: {}
+        }, 'Meal plan retrieved successfully');
+      }
+
+      // Extract unique recipe IDs 
+      const recipeIds = [...new Set(result.map(entry => entry.recipe_id).filter(id => id))];
+
+      // Fetch recipe details and all sections in parallel
+      const [recipeDetails, allSections] = await Promise.all([
+        Promise.all(recipeIds.map(recipeId => 
+          this.apiCall(`/objects/recipes/${recipeId}`)
+        )),
+        this.apiCall('/objects/meal_plan_sections')
+      ]);
+
+      // Simplify meal plan entries - don't merge recipe/section details
+      const simplifiedMealPlanByDate: Record<string, any[]> = {};
+      
+      result.forEach(entry => {
+        const entryDate = entry.day;
+        if (!simplifiedMealPlanByDate[entryDate]) {
+          simplifiedMealPlanByDate[entryDate] = [];
+        }
+        
+        simplifiedMealPlanByDate[entryDate].push({
+          id: entry.id,
+          day: entry.day,
+          section_id: entry.section_id,
+          recipe_id: entry.recipe_id,
+          recipe_servings: entry.recipe_servings,
+          note: entry.note,
+          done: entry.done
+        });
+      });
+
+      return this.createSuccess({
+        meal_plan_by_date: simplifiedMealPlanByDate,
+        recipes: recipeDetails.map((recipe: any) => ({
+          id: recipe.id,
+          name: recipe.name,
+          product_id: recipe.product_id,
+        })),
+        sections: Array.isArray(allSections) ? allSections.map((section: any) => ({
+          id: section.id,
+          name: section.name,
+          time_info: section.time_info
+        })) : []
+      }, 'Meal plan retrieved successfully');
     });
   };
 

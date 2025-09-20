@@ -399,54 +399,175 @@ describe('RecipeToolHandlers', () => {
   });
 
   describe('getMealPlan', () => {
-    it('should get meal plan with date', async () => {
-      const mockMealPlan = [
-        { id: 1, recipe_id: 1, day: '2024-01-15' }
-      ];
+    it('should require date parameter', async () => {
+      const result = await handlers.getMealPlan({});
+      
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters: date');
+    });
+
+    it('should validate date format', async () => {
+      const result = await handlers.getMealPlan({ date: 'invalid-date' });
+      
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Invalid date format. Use YYYY-MM-DD.');
+    });
+
+    it('should return empty meal plan when no entries found', async () => {
+      // Mock empty responses for all date queries
       mockApiClient.request.mockResolvedValue({
-        data: mockMealPlan,
+        data: [],
         status: 200,
         headers: {}
       });
 
       const result = await handlers.getMealPlan({ date: '2024-01-15' });
 
-      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
-        method: 'GET',
-        body: undefined,
-        queryParams: expect.objectContaining({
-          force_today: '1',
-          order: 'day',
-          limit: '3',
-          offset: '-1'
-        })
-      });
       expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[1].text)).toEqual({
+        message: 'No meals planned for the requested date',
+        meal_plan_by_date: {}
+      });
     });
 
-    it('should get weekly meal plan', async () => {
-      const mockMealPlan = [
-        { id: 1, recipe_id: 1, day: '2024-01-15' }
+    it('should get meal plan with enhanced data for single day', async () => {
+      const mockMealPlanEntry = {
+        id: 1,
+        recipe_id: 73,
+        section_id: 2,
+        day: '2024-01-15',
+        recipe_servings: 2,
+        note: null,
+        done: 0
+      };
+
+      const mockRecipe = {
+        id: 73,
+        name: 'Test Recipe',
+        product_id: 438,
+        userfields: null
+      };
+
+      const mockSection = {
+        id: 2,
+        name: 'Dinner',
+        time_info: '18:00',
+        userfields: null
+      };
+
+      const mockAllSections = [
+        { id: 1, name: 'Breakfast', sort_number: 1, time_info: '08:00' },
+        { id: 2, name: 'Dinner', sort_number: 2, time_info: '18:00' }
       ];
-      mockApiClient.request.mockResolvedValue({
-        data: mockMealPlan,
-        status: 200,
-        headers: {}
+
+      // Mock the multiple API calls
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // day before
+        .mockResolvedValueOnce({ data: [mockMealPlanEntry], status: 200, headers: {} }) // target day
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // day after
+        .mockResolvedValueOnce({ data: mockRecipe, status: 200, headers: {} }) // recipe details
+        .mockResolvedValueOnce({ data: mockAllSections, status: 200, headers: {} }); // all sections
+
+      const result = await handlers.getMealPlan({ date: '2024-01-15' });
+
+      expect(result.isError).toBeUndefined();
+      
+      const response = JSON.parse(result.content[1].text);
+      expect(response).toEqual({
+        meal_plan_by_date: {
+          '2024-01-15': [{
+            id: 1,
+            day: '2024-01-15',
+            section_id: 2,
+            recipe_id: 73,
+            recipe_servings: 2,
+            note: null,
+            done: 0
+          }]
+        },
+        recipes: [{
+          id: 73,
+          name: 'Test Recipe',
+          product_id: 438
+        }],
+        sections: [
+          { id: 1, name: 'Breakfast', time_info: '08:00' },
+          { id: 2, name: 'Dinner', time_info: '18:00' }
+        ]
       });
 
-      const result = await handlers.getMealPlan({ date: '2024-01-15', weekly: true });
-
+      // Verify correct API calls were made
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
         method: 'GET',
         body: undefined,
-        queryParams: expect.objectContaining({
-          force_today: '1',
-          order: 'day',
-          limit: '14',
-          offset: '-7'
-        })
+        queryParams: {
+          'query[]': 'day=2024-01-14',
+          order: 'day'
+        }
       });
+      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {
+          'query[]': 'day=2024-01-15',
+          order: 'day'
+        }
+      });
+      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {
+          'query[]': 'day=2024-01-16',
+          order: 'day'
+        }
+      });
+    });
+
+    it('should handle weekly meal plan', async () => {
+      const mockMealPlanEntry = {
+        id: 1,
+        recipe_id: 73,
+        section_id: 2,
+        day: '2024-01-19',
+        recipe_servings: 2,
+        note: null,
+        done: 0
+      };
+
+      // Mock empty responses for most days, one entry on target day
+      mockApiClient.request
+        .mockResolvedValue({ data: [], status: 200, headers: {} }) // default for most calls
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // buffer day before
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Monday
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Tuesday
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Wednesday
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Thursday
+        .mockResolvedValueOnce({ data: [mockMealPlanEntry], status: 200, headers: {} }) // Friday (target)
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Saturday
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Sunday
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // buffer day after
+        .mockResolvedValueOnce({ data: { id: 73, name: 'Recipe', product_id: null }, status: 200, headers: {} }) // recipe
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }); // all sections
+
+      const result = await handlers.getMealPlan({ date: '2024-01-19', weekly: true }); // Friday
+
       expect(result.isError).toBeUndefined();
+      
+      const response = JSON.parse(result.content[1].text);
+      expect(response.meal_plan_by_date['2024-01-19']).toBeDefined();
+      expect(response.meal_plan_by_date['2024-01-19'][0].id).toBe(1);
+
+      // Should call for 9 days (week + 2 buffer days)
+      expect(mockApiClient.request).toHaveBeenCalledTimes(11); // 9 meal plan + 1 recipe + 1 all sections
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockApiClient.request.mockRejectedValue(new Error('API Error'));
+
+      const result = await handlers.getMealPlan({ date: '2024-01-15' });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Error');
     });
   });
 
