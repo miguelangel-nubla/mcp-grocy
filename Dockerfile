@@ -53,21 +53,6 @@ RUN if echo "$BUILD_FROM" | grep -q "home-assistant"; then \
 
 RUN npm run build
 
-# --- Environment Variables ---
-# Non-sensitive environment configuration (endpoints & settings)
-ENV GROCY_BASE_URL=""
-# API key should be passed at runtime, not built into image
-ENV GROCY_ENABLE_SSL_VERIFY="true"
-ENV REST_RESPONSE_SIZE_LIMIT="10mb"
-ENV ENABLE_HTTP_SERVER="true"
-ARG DEFAULT_PORT=8080
-ENV HTTP_SERVER_PORT=${DEFAULT_PORT}
-
-# --- Volumes ---
-
-# --- Expose Port ---
-EXPOSE ${DEFAULT_PORT}
-
 # --- Entrypoint & Command ---
 # For Home Assistant addon builds, the entrypoint is /init (from S6-Overlay in the base image).
 # CMD is also typically handled by S6 services defined in rootfs.
