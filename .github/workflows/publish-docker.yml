@@ -1,14 +1,19 @@
 name: Publish Docker Image
 
-run-name: 'Publish Docker ${{ github.ref_name }}'
+run-name: 'Publish Docker ${{ inputs.release_version || github.ref_name }}'
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_call:
+    inputs:
+      release_version:
+        required: true
+        type: string
 
 concurrency:
-  group: publish-docker-${{ github.ref_name }}
+  group: publish-docker-${{ inputs.release_version || github.ref_name }}
   cancel-in-progress: false
 
 
@@ -18,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      RELEASE_VERSION: ${{ github.ref_name }}
+      RELEASE_VERSION: ${{ inputs.release_version || github.ref_name }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4

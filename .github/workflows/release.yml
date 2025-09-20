@@ -107,9 +107,26 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      run: npx semantic-release --debug
+      run: |
+        npx semantic-release --debug
+        
+        # Check if a new release was published by looking for a new tag on HEAD
+        if git describe --exact-match --tags HEAD 2>/dev/null; then
+          echo "new_release_published=true" >> $GITHUB_OUTPUT
+          echo "new_release_version=$(git describe --exact-match --tags HEAD)" >> $GITHUB_OUTPUT
+        else
+          echo "new_release_published=false" >> $GITHUB_OUTPUT
+        fi
 
-  # Note: Docker publishing is now handled by a separate workflow that triggers on tag creation
+  call-publish-docker:
+    name: Publish Docker Image
+    needs: [ release ]
+    if: needs.release.outputs.new_release_published == 'true'
+    permissions:
+      packages: write # For publishing Docker images to GHCR
+    uses: ./.github/workflows/publish-docker.yml
+    with:
+      release_version: ${{ needs.release.outputs.new_release_version }}
   # Note: Home Assistant addon building is now handled automatically
   # by the Builder workflow in the hassio-addons repository.
   # The Builder workflow detects submodule updates and builds addons automatically.
