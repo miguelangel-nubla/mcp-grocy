@@ -1,3 +1,4 @@
+---
 # Grocy MCP Server Configuration
 # Copy this file to mcp-grocy.yaml and customize as needed
 
@@ -6,7 +7,7 @@ server:
   enable_http_server: false
   http_server_port: 8080
 
-# Grocy API Configuration  
+# Grocy API Configuration
 grocy:
   base_url: "http://localhost:9283"
   # api_key: "your_api_key_here"  # Set via GROCY_API_KEY env var
@@ -46,20 +47,20 @@ tools:
     ack_token: "PURPLE_TELESCOPE_SINGING"
 
   inventory_transactions_consume:
-    enabled: true
+    enabled: false
     ack_token: "ORANGE_BUTTERFLY_LAUGHING"
 
   inventory_transactions_transfer:
-    enabled: true
+    enabled: false
     ack_token: "BLUE_PIANO_JUMPING"
 
   inventory_transactions_open:
-    enabled: true
+    enabled: false
     ack_token: "GREEN_WHISTLE_FLOATING"
 
   # Product Management
   inventory_products_get:
-    enabled: true
+    enabled: false
     # ack_token: "CORAL_SPOON_SKIPPING"
 
   inventory_products_get_groups:
@@ -72,19 +73,31 @@ tools:
 
   inventory_products_lookup:
     enabled: true
-    ack_token: "AMBER_CLOUD_WHISTLING"
+    # ack_token: "AMBER_CLOUD_WHISTLING"
 
   inventory_products_print_label:
-    enabled: true
-    ack_token: "EMERALD_NOTEBOOK_TWINKLING"
+    enabled: false
+    # ack_token: "EMERALD_NOTEBOOK_TWINKLING"
 
   inventory_stock_entry_print_label:
     enabled: true
-    ack_token: "SILVER_PUDDLE_HUMMING"
+    # ack_token: "SILVER_PUDDLE_HUMMING"
 
-    # ==================== RECIPE TOOLS ====================
+  inventory_stock_entry_consume:
+    enabled: true
+    ack_token: "SAGE_BUTTERFLY_MELTING"
 
-    # Recipe Management
+  inventory_stock_entry_open:
+    enabled: true
+    ack_token: "CORAL_THUNDER_SPINNING"
+
+  inventory_stock_entry_transfer:
+    enabled: true
+    ack_token: "JADE_FEATHER_FLOWING"
+
+  # ==================== RECIPE TOOLS ====================
+
+  # Recipe Management
   recipes_management_get:
     enabled: true
     # ack_token: "SALMON_COMPASS_HOPPING"
@@ -98,10 +111,10 @@ tools:
     ack_token: "SILVER_ROCKET_DREAMING"
 
   recipes_management_print_label:
-    enabled: true
-    ack_token: "CORAL_STARFISH_BLOOMING"
+    enabled: false
+    # ack_token: "CORAL_STARFISH_BLOOMING"
 
-  # Recipe Fulfillment
+    # Recipe Fulfillment
   recipes_fulfillment_get:
     enabled: true
     # ack_token: "AZURE_POPCORN_SLIDING"
@@ -141,7 +154,7 @@ tools:
     # ack_token: "LIME_COOKIE_FLICKERING"
 
   recipes_mealplan_add_recipe:
-    enabled: true
+    enabled: false
     ack_token: "DIAMOND_CACTUS_FLOWING"
 
   recipes_mealplan_delete_entry:
@@ -159,7 +172,7 @@ tools:
     ack_token: "BRONZE_COMET_TWIRLING"
 
   shopping_list_remove_item:
-    enabled: true
+    enabled: false
     ack_token: "JADE_SHADOW_RIPPLING"
 
   shopping_locations_get:
@@ -167,8 +180,8 @@ tools:
     # ack_token: "AMBER_LIGHTHOUSE_PAINTING"
 
   shopping_list_print_thermal:
-    enabled: true
-    ack_token: "VIOLET_COMPASS_SPARKLING"
+    enabled: false
+    # ack_token: "VIOLET_COMPASS_SPARKLING"
 
     # ==================== HOUSEHOLD TOOLS ====================
 
@@ -182,10 +195,10 @@ tools:
     ack_token: "NEON_FOREST_GIGGLING"
 
   household_chores_print_label:
-    enabled: true
-    ack_token: "SAPPHIRE_BUTTERFLY_GLEAMING"
+    enabled: false
+    # ack_token: "SAPPHIRE_BUTTERFLY_GLEAMING"
 
-  # Task Management
+    # Task Management
   household_tasks_get:
     enabled: false
     # ack_token: "SCARLET_DRAGON_WHISTLING"
@@ -205,9 +218,9 @@ tools:
 
   household_batteries_print_label:
     enabled: true
-    ack_token: "TURQUOISE_CRYSTAL_WHISTLING"
+    # ack_token: "TURQUOISE_CRYSTAL_WHISTLING"
 
-  # Equipment Management
+    # Equipment Management
   household_equipment_get:
     enabled: false
     # ack_token: "PLUM_TRIANGLE_DANCING"
