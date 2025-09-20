@@ -1,0 +1,222 @@
+# Grocy MCP Server Configuration
+# Copy this file to mcp-grocy.yaml and customize as needed
+
+# Server Configuration
+server:
+  enable_http_server: false
+  http_server_port: 8080
+
+# Grocy API Configuration  
+grocy:
+  base_url: "http://localhost:9283"
+  # api_key: "your_api_key_here"  # Set via GROCY_APIKEY_VALUE env var
+  enable_ssl_verify: true
+  response_size_limit: 10000
+
+# Tool Configuration
+# All tools can have acknowledgment tokens configured
+# Set ack_token to any string to enable confirmation for that tool
+tools:
+  # ==================== INVENTORY TOOLS ====================
+
+  # Stock Management
+  inventory_stock_get_all:
+    enabled: true
+    # ack_token: "MAGENTA_SAILBOAT_TICKING"
+
+  inventory_stock_get_volatile:
+    enabled: true
+    # ack_token: "TURQUOISE_RAINBOW_NIBBLING"
+
+  inventory_stock_get_by_location:
+    enabled: true
+    # ack_token: "LAVENDER_DOORBELL_STRETCHING"
+
+  inventory_stock_get_by_product:
+    enabled: true
+    # ack_token: "CHARTREUSE_SNOWFLAKE_WIGGLING"
+
+    # Stock Transactions
+  inventory_transactions_adjust:
+    enabled: false
+    ack_token: "ZEBRA_MOUNTAIN_DANCING"
+
+  inventory_transactions_purchase:
+    enabled: true
+    ack_token: "PURPLE_TELESCOPE_SINGING"
+
+  inventory_transactions_consume:
+    enabled: true
+    ack_token: "ORANGE_BUTTERFLY_LAUGHING"
+
+  inventory_transactions_transfer:
+    enabled: true
+    ack_token: "BLUE_PIANO_JUMPING"
+
+  inventory_transactions_open:
+    enabled: true
+    ack_token: "GREEN_WHISTLE_FLOATING"
+
+  # Product Management
+  inventory_products_get:
+    enabled: true
+    # ack_token: "CORAL_SPOON_SKIPPING"
+
+  inventory_products_get_groups:
+    enabled: true
+    # ack_token: "INDIGO_CANDLE_TUMBLING"
+
+  inventory_products_get_price_history:
+    enabled: false
+    # ack_token: "BEIGE_MARBLE_CHIRPING"
+
+  inventory_products_lookup:
+    enabled: true
+    ack_token: "AMBER_CLOUD_WHISTLING"
+
+  inventory_stock_print_label:
+    enabled: true
+    ack_token: "SILVER_PUDDLE_HUMMING"
+
+    # ==================== RECIPE TOOLS ====================
+
+    # Recipe Management
+  recipes_management_get:
+    enabled: true
+    # ack_token: "SALMON_COMPASS_HOPPING"
+
+  recipes_management_get_by_id:
+    enabled: true
+    # ack_token: "CRIMSON_JELLYBEAN_CRAWLING"
+
+  recipes_management_create:
+    enabled: false
+    ack_token: "SILVER_ROCKET_DREAMING"
+
+  # Recipe Fulfillment
+  recipes_fulfillment_get:
+    enabled: true
+    # ack_token: "AZURE_POPCORN_SLIDING"
+
+  recipes_fulfillment_get_all:
+    enabled: false
+    # ack_token: "MUSTARD_SNOWBALL_JUGGLING"
+
+    # Recipe Cooking
+  recipes_cooking_consume:
+    enabled: false
+    ack_token: "GOLDEN_UMBRELLA_SPINNING"
+
+  recipes_cooking_cooked_something:
+    enabled: true
+    ack_token: "CRYSTAL_VOLCANO_WHISPERING"
+    allow_meal_plan_entry_already_done: false
+    allow_no_meal_plan: false
+    print_labels: true
+
+  # Recipe Shopping Integration
+  recipes_shopping_add_all_products:
+    enabled: false
+    ack_token: "COPPER_FEATHER_GLIDING"
+
+  recipes_shopping_add_missing_products:
+    enabled: false
+    ack_token: "MARBLE_THUNDER_MELTING"
+
+  # Meal Planning
+  recipes_mealplan_get:
+    enabled: true
+    # ack_token: "VIOLET_TRUMPET_ROLLING"
+
+  recipes_mealplan_get_sections:
+    enabled: true
+    # ack_token: "LIME_COOKIE_FLICKERING"
+
+  recipes_mealplan_add_recipe:
+    enabled: true
+    ack_token: "DIAMOND_CACTUS_FLOWING"
+
+  recipes_mealplan_delete_entry:
+    enabled: false
+    ack_token: "VELVET_GLACIER_BOUNCING"
+
+  # ==================== SHOPPING TOOLS ====================
+
+  shopping_list_get:
+    enabled: true
+    # ack_token: "TEAL_PUZZLE_SPINNING"
+
+  shopping_list_add_item:
+    enabled: true
+    ack_token: "BRONZE_COMET_TWIRLING"
+
+  shopping_list_remove_item:
+    enabled: true
+    ack_token: "JADE_SHADOW_RIPPLING"
+
+  shopping_locations_get:
+    enabled: false
+    # ack_token: "AMBER_LIGHTHOUSE_PAINTING"
+
+    # ==================== HOUSEHOLD TOOLS ====================
+
+    # Chore Management
+  household_chores_get:
+    enabled: false
+    # ack_token: "EMERALD_BICYCLE_SNORING"
+
+  household_chores_execute:
+    enabled: false
+    ack_token: "NEON_FOREST_GIGGLING"
+
+  # Task Management
+  household_tasks_get:
+    enabled: false
+    # ack_token: "SCARLET_DRAGON_WHISTLING"
+
+  household_tasks_complete:
+    enabled: false
+    ack_token: "RUBY_CLOCK_HUMMING"
+
+  # Battery Management
+  household_batteries_get:
+    enabled: false
+    # ack_token: "IVORY_SANDWICH_CLIMBING"
+
+  household_batteries_charge:
+    enabled: false
+    ack_token: "PEARL_MEADOW_SWAYING"
+
+  # Equipment Management
+  household_equipment_get:
+    enabled: false
+    # ack_token: "PLUM_TRIANGLE_DANCING"
+
+    # Action Utilities
+  household_actions_undo:
+    enabled: false
+    ack_token: "CRIMSON_KITE_SHIMMERING"
+
+  # ==================== SYSTEM TOOLS ====================
+
+  # System Reference Data
+  system_locations_get:
+    enabled: true
+    # ack_token: "OLIVE_PANCAKE_FLOATING"
+
+  system_units_get:
+    enabled: true
+    # ack_token: "NAVY_HARMONICA_TUMBLING"
+
+  system_users_get:
+    enabled: false
+    # ack_token: "GOLD_ENVELOPE_JUGGLING"
+
+    # Developer/Testing Tools
+  system_dev_call_api:
+    enabled: false
+    # ack_token: "ROSE_ZIPPER_SWIMMING"
+
+  system_dev_test_request:
+    enabled: false
+    # ack_token: "MINT_TELEPHONE_SKIPPING"

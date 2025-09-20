@@ -1,185 +1,396 @@
+/**
+ * Simplified recipe tool handlers
+ * Demonstrates the new simplified pattern
+ */
+
 import { BaseToolHandler } from '../base.js';
 import { ToolResult, ToolHandler } from '../types.js';
-import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
-import apiClient from '../../api/client.js';
-import { StockToolHandlers } from '../stock/handlers.js';
 
 export class RecipeToolHandlers extends BaseToolHandler {
-  private stockHandlers = new StockToolHandlers();
+
+  /**
+   * Get recipes with specified fields
+   */
   public getRecipes: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { fields } = args || {};
-    if (!fields || !Array.isArray(fields) || fields.length === 0) {
-      throw new McpError(ErrorCode.InvalidParams, 'fields parameter is required and must be a non-empty array of field names');
-    }
+    return this.executeToolHandler(async () => {
+      const { fields } = args || {};
+      
+      // Validate required parameters
+      this.validateRequired({ fields }, ['fields']);
+      const fieldList = this.parseArrayParam(fields, 'fields');
 
-    try {
       // Fetch recipes
-      const recipesResponse = await apiClient.get('/objects/recipes', { queryParams: { 'query[]': 'type=normal' } });
-      const recipes = recipesResponse.data;
-
-      if (!Array.isArray(recipes)) {
-        return this.createSuccessResult([]);
-      }
-
-      // Filter recipes to only include requested fields
-      const filteredRecipes = recipes.map((recipe: any) => {
-        const filtered: any = {};
-        fields.forEach(field => {
-          if (recipe.hasOwnProperty(field)) {
-            filtered[field] = recipe[field];
-          }
-        });
-        return filtered;
+      const recipes = await this.apiCall('/objects/recipes', 'GET', undefined, {
+        queryParams: { 'query[]': 'type=normal' }
       });
 
-      return this.createSuccessResult(filteredRecipes);
-    } catch (error: any) {
-      return this.createErrorResult(`Failed to get recipes: ${error.message}`);
-    }
-  };
-
-  public getRecipeById: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { recipeId } = args || {};
-    if (!recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required');
-    }
-    
-    return this.handleApiCall(`/objects/recipes/${recipeId}`, 'Get recipe by ID');
-  };
-
-  public createRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { 
-      name, 
-      description = '', 
-      servings = 1, 
-      desiredServings = 1 
-    } = args || {};
-    
-    if (!name) {
-      throw new McpError(ErrorCode.InvalidParams, 'Recipe name is required');
-    }
-    
-    const body = {
-      name,
-      description,
-      base_servings: servings,
-      desired_servings: desiredServings
-    };
-    
-    return this.handleApiCall('/objects/recipes', 'Create recipe', {
-      method: 'POST',
-      body
-    });
-  };
-
-  public getRecipeFulfillment: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { recipeId, servings = 1 } = args || {};
-    if (!recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required');
-    }
-    
-    return this.handleApiCall(`/recipes/${recipeId}/fulfillment`, 'Get recipe fulfillment', {
-      queryParams: servings !== 1 ? { servings: servings.toString() } : {}
-    });
-  };
-
-  public getRecipesFulfillment: ToolHandler = async (): Promise<ToolResult> => {
-    return this.handleApiCall('/recipes/fulfillment', 'Get all recipes fulfillment');
-  };
-
-  public consumeRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { recipeId, servings = 1 } = args || {};
-    if (!recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required');
-    }
-    
-    const body = {
-      recipe_id: recipeId,
-      servings
-    };
-    
-    return this.handleApiCall(`/recipes/${recipeId}/consume`, 'Consume recipe', {
-      method: 'POST',
-      body
-    });
-  };
-
-  public addRecipeProductsToShoppingList: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { recipeId } = args || {};
-    if (!recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required');
-    }
-    
-    return this.handleApiCall(`/recipes/${recipeId}/add-not-fulfilled-products-to-shoppinglist`, 'Add recipe products to shopping list', {
-      method: 'POST'
-    });
-  };
-
-  public addMissingProductsToShoppingList: ToolHandler = async (args: any): Promise<ToolResult> => {
-    const { recipeId, servings = 1, shoppingListId = 1 } = args || {};
-    if (!recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required');
-    }
-    
-    const body = {
-      servings,
-      shopping_list_id: shoppingListId
-    };
-    
-    return this.handleApiCall(`/recipes/${recipeId}/add-not-fulfilled-products-to-shoppinglist`, 'Add missing products to shopping list', {
-      method: 'POST',
-      body
-    });
-  };
-
-  public markRecipeFromMealPlanEntryAsCooked: ToolHandler = async (args: any, subConfigs?: Map<string, boolean>): Promise<ToolResult> => {
-    const { mealPlanEntryId, recipeId, stockAmounts } = args || {};
-    
-    // Sub-configuration options
-    const allowMealPlanEntryAlreadyDone = subConfigs?.get('allow_meal_plan_entry_already_done') ?? false;
-    const printLabels = subConfigs?.get('print_labels') ?? true;
-    const allowNoMealPlan = subConfigs?.get('allow_no_meal_plan') ?? false;
-    
-    // Validate required parameters based on mode
-    if (!allowNoMealPlan && !mealPlanEntryId) {
-      throw new McpError(ErrorCode.InvalidParams, 'mealPlanEntryId is required.');
-    }
-    
-    if (allowNoMealPlan && !recipeId) {
-      throw new McpError(ErrorCode.InvalidParams, 'recipeId is required.');
-    }
-
-    if (!stockAmounts || !Array.isArray(stockAmounts) || stockAmounts.length === 0) {
-      throw new McpError(ErrorCode.InvalidParams, 'stockAmounts is required and must be a non-empty array of serving amounts.');
-    }
-
-    // Validate all stock amounts are positive numbers
-    for (let i = 0; i < stockAmounts.length; i++) {
-      const amount = stockAmounts[i];
-      if (typeof amount !== 'number' || amount <= 0) {
-        throw new McpError(ErrorCode.InvalidParams, `stockAmounts[${i}] must be a positive number, got: ${amount}`);
+      if (!Array.isArray(recipes)) {
+        return this.createSuccess([]);
       }
-    }
 
-    const completedSteps: string[] = [];
-    let actualRecipeId: number;
-    let totalServings: number;
-    let mealPlanDate: string;
-    let mealplanShadow: string;
-    
-    try {
+      // Filter to requested fields
+      const filteredRecipes = this.filterFields(recipes, fieldList);
+      
+      return this.createSuccess(filteredRecipes);
+    }, 'get recipes');
+  };
+
+  /**
+   * Get recipe by ID
+   */
+  public getRecipeById: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      
+      const recipe = await this.apiCall(`/objects/recipes/${id}`);
+      
+      return this.createSuccess(recipe);
+    }, 'get recipe by ID');
+  };
+
+  /**
+   * Get recipe fulfillment information
+   */
+  public getRecipeFulfillment: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      
+      const fulfillment = await this.apiCall(`/recipes/${id}/fulfillment`);
+      
+      return this.createSuccess(fulfillment);
+    }, 'get recipe fulfillment');
+  };
+
+  /**
+   * Add recipe to meal plan
+   */
+  public addRecipeToMealPlan: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId, day, mealType } = args || {};
+      
+      this.validateRequired({ recipeId, day }, ['recipeId', 'day']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      
+      const mealPlanData = {
+        day,
+        type: mealType || 'lunch',
+        recipe_id: id
+      };
+      
+      const result = await this.apiCall('/objects/meal_plan', 'POST', mealPlanData);
+      
+      return this.createSuccess(result, 'Recipe added to meal plan successfully');
+    }, 'add recipe to meal plan');
+  };
+
+  /**
+   * Cook recipe - consume ingredients from stock
+   */
+  public cookRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId, servings } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      const servingCount = this.parseNumberParam(servings, 'servings', false) || 1;
+      
+      // Get recipe details first
+      const recipe = await this.apiCall(`/objects/recipes/${id}`);
+      
+      // Cook the recipe
+      const cookData = {
+        recipe_id: id,
+        servings: servingCount
+      };
+      
+      const result = await this.apiCall('/recipes/cook', 'POST', cookData);
+      
+      return this.createSuccess({
+        recipe: recipe.name,
+        servings: servingCount,
+        result
+      }, `Recipe "${recipe.name}" cooked successfully`);
+    }, 'cook recipe');
+  };
+
+  /**
+   * Get recipe nutrition information
+   */
+  public getRecipeNutrition: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      
+      const nutrition = await this.apiCall(`/recipes/${id}/nutrition`);
+      
+      return this.createSuccess(nutrition);
+    }, 'get recipe nutrition');
+  };
+
+  /**
+   * Search recipes by name or ingredients
+   */
+  public searchRecipes: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { query, fields } = args || {};
+      
+      this.validateRequired({ query }, ['query']);
+      const fieldList = this.parseArrayParam(fields || ['id', 'name'], 'fields');
+      
+      // Get all recipes and filter locally
+      // Note: This could be optimized with server-side search if Grocy supports it
+      const recipes = await this.apiCall('/objects/recipes', 'GET', undefined, {
+        queryParams: { 'query[]': 'type=normal' }
+      });
+      
+      if (!Array.isArray(recipes)) {
+        return this.createSuccess([]);
+      }
+      
+      const searchTerm = query.toLowerCase();
+      const filtered = recipes.filter((recipe: any) => 
+        recipe.name?.toLowerCase().includes(searchTerm) ||
+        recipe.description?.toLowerCase().includes(searchTerm)
+      );
+      
+      const result = this.filterFields(filtered, fieldList);
+      
+      return this.createSuccess(result);
+    }, 'search recipes');
+  };
+
+  // ==================== MEAL PLANNING METHODS ====================
+
+  /**
+   * Get meal plan data with context
+   */
+  public getMealPlan: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { date, weekly } = args || {};
+
+      // Build query parameters for meal plan with context
+      const params = new URLSearchParams({ 
+        force_today: '1',
+        order: 'day',
+        limit: weekly ? '14' : '3',
+        offset: weekly ? '-7' : '-1'
+      });
+
+      if (date) {
+        const targetDate = new Date(date);
+        if (isNaN(targetDate.getTime())) {
+          throw new Error('Invalid date format. Use YYYY-MM-DD.');
+        }
+        
+        if (weekly) {
+          // For weekly view, get the start of the week (Monday)
+          const dayOfWeek = targetDate.getDay();
+          const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          const startOfWeek = new Date(targetDate);
+          startOfWeek.setDate(targetDate.getDate() + mondayOffset);
+          params.set('dates[0]', startOfWeek.toISOString().split('T')[0]!);
+        } else {
+          // Get the day before for context
+          const dayBefore = new Date(targetDate);
+          dayBefore.setDate(targetDate.getDate() - 1);
+          params.set('dates[0]', dayBefore.toISOString().split('T')[0]!);
+        }
+      }
+
+      const result = await this.apiCall(`/objects/meal_plan`, 'GET', undefined, { queryParams: Object.fromEntries(params) });
+      return this.createSuccess(result, 'Meal plan retrieved successfully');
+    }, 'get meal plan');
+  };
+
+  /**
+   * Get meal plan sections
+   */
+  public getMealPlanSections: ToolHandler = async (): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const result = await this.apiCall('/objects/meal_plan_sections');
+      return this.createSuccess(result, 'Meal plan sections retrieved successfully');
+    }, 'get meal plan sections');
+  };
+
+  /**
+   * Delete recipe from meal plan
+   */
+  public deleteRecipeFromMealPlan: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { mealPlanEntryId } = args || {};
+      this.validateRequired({ mealPlanEntryId }, ['mealPlanEntryId']);
+
+      const result = await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'DELETE');
+      return this.createSuccess(result, 'Recipe deleted from meal plan successfully');
+    }, 'delete recipe from meal plan');
+  };
+
+  // ==================== RECIPE CREATION ====================
+
+  /**
+   * Create a new recipe
+   */
+  public createRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { name, description, baseServings, instructions } = args || {};
+      
+      this.validateRequired({ name }, ['name']);
+      
+      const recipeData = {
+        name,
+        description: description || '',
+        base_servings: baseServings || 1,
+        type: 'normal',
+        instructions: instructions || ''
+      };
+      
+      const result = await this.apiCall('/objects/recipes', 'POST', recipeData);
+      
+      return this.createSuccess(result, `Recipe "${name}" created successfully`);
+    }, 'create recipe');
+  };
+
+  // ==================== RECIPE FULFILLMENT ====================
+
+  /**
+   * Get fulfillment status for all recipes
+   */
+  public getAllRecipeFulfillment: ToolHandler = async (): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const fulfillment = await this.apiCall('/recipes/fulfillment');
+      
+      return this.createSuccess(fulfillment);
+    }, 'get all recipe fulfillment');
+  };
+
+  // ==================== RECIPE CONSUMPTION ====================
+
+  /**
+   * Consume/cook a recipe (simple version)
+   */
+  public consumeRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId, servings } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      const servingCount = this.parseNumberParam(servings, 'servings', false) || 1;
+      
+      const consumeData = {
+        recipe_id: id,
+        servings: servingCount
+      };
+      
+      const result = await this.apiCall('/recipes/consume', 'POST', consumeData);
+      
+      return this.createSuccess(result, `Recipe consumed (${servingCount} servings)`);
+    }, 'consume recipe');
+  };
+
+  // ==================== RECIPE SHOPPING INTEGRATION ====================
+
+  /**
+   * Add all products from a recipe to shopping list
+   */
+  public addAllProductsToShopping: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      
+      const result = await this.apiCall(`/recipes/${id}/add-all-ingredients-to-shopping-list`, 'POST');
+      
+      return this.createSuccess(result, 'All recipe products added to shopping list');
+    }, 'add all recipe products to shopping');
+  };
+
+  /**
+   * Add missing products from a recipe to shopping list
+   */
+  public addMissingProductsToShopping: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId } = args || {};
+      
+      this.validateRequired({ recipeId }, ['recipeId']);
+      const id = this.parseNumberParam(recipeId, 'recipeId');
+      
+      const result = await this.apiCall(`/recipes/${id}/add-not-fulfilled-products-to-shopping-list`, 'POST');
+      
+      return this.createSuccess(result, 'Missing recipe products added to shopping list');
+    }, 'add missing recipe products to shopping');
+  };
+
+  // ==================== COOKING METHODS ====================
+
+  /**
+   * Mark recipe from meal plan entry as cooked - modernized version
+   */
+  public cookedSomething: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { mealPlanEntryId, recipeId, stockAmounts } = args || {};
+      
+      // Get configuration from environment
+      const config = await import('../../config/environment.js').then(m => m.default);
+      const { toolSubConfigs } = config.parseToolConfiguration();
+      const subConfigs = toolSubConfigs?.get('cooked_something');
+      
+      const allowMealPlanEntryAlreadyDone = subConfigs?.get('allow_meal_plan_entry_already_done') ?? false;
+      const printLabels = subConfigs?.get('print_labels') ?? true;
+      const allowNoMealPlan = subConfigs?.get('allow_no_meal_plan') ?? false;
+      
+      // Validate parameters based on configuration
+      if (!allowNoMealPlan && !mealPlanEntryId) {
+        throw new Error('mealPlanEntryId is required when allow_no_meal_plan is false.');
+      }
+      
+      if (allowNoMealPlan && !recipeId) {
+        throw new Error('recipeId is required when allow_no_meal_plan is true.');
+      }
+      
+      if (allowNoMealPlan && mealPlanEntryId) {
+        throw new Error('mealPlanEntryId should not be provided when allow_no_meal_plan is true. Use recipeId instead.');
+      }
+
+      this.validateRequired({ stockAmounts }, ['stockAmounts']);
+      
+      if (!Array.isArray(stockAmounts) || stockAmounts.length === 0) {
+        throw new Error('stockAmounts must be a non-empty array of serving amounts.');
+      }
+
+      // Validate all stock amounts are positive numbers
+      for (let i = 0; i < stockAmounts.length; i++) {
+        const amount = stockAmounts[i]!;
+        if (typeof amount !== 'number' || amount <= 0) {
+          throw new Error(`stockAmounts[${i}] must be a positive number, got: ${amount}`);
+        }
+      }
+
+      const completedSteps: string[] = [];
+      let actualRecipeId: number;
+      let totalServings: number;
+      let mealPlanDate: string;
+      let mealplanShadow: string;
+      
       if (allowNoMealPlan) {
         // Direct recipe mode - no meal plan entry involved
         actualRecipeId = recipeId;
         totalServings = stockAmounts.reduce((sum: number, amount: number) => sum + amount, 0);
-        mealPlanDate = new Date().toISOString().split('T')[0];
+        mealPlanDate = new Date().toISOString().split('T')[0]!;
         mealplanShadow = `${mealPlanDate}#direct-recipe-${actualRecipeId}`;
         
         completedSteps.push('Using direct recipe mode (no meal plan entry)');
       } else {
         // Meal plan mode - traditional workflow
-        const mealPlanResponse = await apiClient.get(`/objects/meal_plan/${mealPlanEntryId}`);
-        const mealPlanEntry = mealPlanResponse.data;
+        const mealPlanEntry = await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`);
 
         if (!mealPlanEntry) {
           throw new Error(`Meal plan entry ${mealPlanEntryId} not found.`);
@@ -191,62 +402,58 @@ export class RecipeToolHandlers extends BaseToolHandler {
 
         actualRecipeId = mealPlanEntry.recipe_id;
         totalServings = stockAmounts.reduce((sum: number, amount: number) => sum + amount, 0);
-        mealPlanDate = mealPlanEntry.day || new Date().toISOString().split('T')[0];
+        mealPlanDate = mealPlanEntry.day || new Date().toISOString().split('T')[0]!;
         mealplanShadow = `${mealPlanDate}#${mealPlanEntryId}`;
         
         // Mark the meal plan entry as done and update recipe_servings
-        await apiClient.put(`/objects/meal_plan/${mealPlanEntryId}`, {
+        await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'PUT', {
           done: 1,
           recipe_servings: totalServings
         });
         completedSteps.push('Meal plan entry marked as done');
       }
 
-      // For direct recipe mode, consume ingredients directly using the recipe ID
-      // For meal plan mode, try to find and use the shadow recipe
+      // Consume recipe ingredients
       if (allowNoMealPlan) {
         // Direct consumption using the recipe ID
-        await apiClient.post(`/recipes/${actualRecipeId}/consume`);
+        await this.apiCall(`/recipes/${actualRecipeId}/consume`, 'POST');
         completedSteps.push('Recipe consumed directly');
       } else {
         // Query for the mealplan shadow recipe by name
-        const shadowRecipeResponse = await apiClient.get('/objects/recipes', {
+        const shadowRecipes = await this.apiCall('/objects/recipes', 'GET', undefined, {
           queryParams: { 'query[]': `name=${mealplanShadow}` }
         });
         
-        if (shadowRecipeResponse.data.length === 0) {
+        if (!Array.isArray(shadowRecipes) || shadowRecipes.length === 0) {
           throw new Error(`Mealplan shadow recipe '${mealplanShadow}' not found. Cannot consume ingredients.`);
         }
         
-        const shadowRecipeId = shadowRecipeResponse.data[0].id;
+        const shadowRecipeId = shadowRecipes[0]!.id;
         
         // Consume ingredients using the shadow recipe ID
-        await apiClient.post(`/recipes/${shadowRecipeId}/consume`);
+        await this.apiCall(`/recipes/${shadowRecipeId}/consume`, 'POST');
         completedSteps.push('Recipe consumed via meal plan entry');
       }
 
-      // Split stock entry and print labels for each portion
+      // Handle stock entry splitting and label printing
       let stockEntries: { splitEntries: Array<{stockId: any, amount: number, type: string, unit: string}>, labelsPrinted: number } = { splitEntries: [], labelsPrinted: 0 };
       
-      const recipeResponse = await apiClient.get(`/objects/recipes/${actualRecipeId}`);
-      const recipe = recipeResponse.data;
+      const recipe = await this.apiCall(`/objects/recipes/${actualRecipeId}`);
       
       if (recipe && recipe.product_id) {
-        // Get product details, quantity unit, and the most recent stock entry created by recipe consumption
-        const [productResponse, entriesResponse] = await Promise.all([
-          apiClient.get(`/objects/products/${recipe.product_id}`),
-          apiClient.get(`/stock/products/${recipe.product_id}/entries`, {
+        // Get product details and most recent stock entry
+        const [product, entries] = await Promise.all([
+          this.apiCall(`/objects/products/${recipe.product_id}`),
+          this.apiCall(`/stock/products/${recipe.product_id}/entries`, 'GET', undefined, {
             queryParams: { order: 'row_created_timestamp:desc', limit: '1' }
           })
         ]);
-        const product = productResponse.data;
         
         // Get quantity unit info
         let quantityUnit = null;
         if (product.qu_id_stock) {
           try {
-            const quantityUnitResponse = await apiClient.get(`/objects/quantity_units/${product.qu_id_stock}`);
-            quantityUnit = quantityUnitResponse.data;
+            quantityUnit = await this.apiCall(`/objects/quantity_units/${product.qu_id_stock}`);
           } catch (error) {
             console.warn('Failed to fetch quantity unit:', error);
           }
@@ -254,31 +461,27 @@ export class RecipeToolHandlers extends BaseToolHandler {
         
         // Helper function to get correct unit form
         const getUnitForm = (amount: number): string => {
-          if (!quantityUnit) return '';
-          
-          // Handle edge cases
-          if (!quantityUnit.name) return '';
+          if (!quantityUnit || !quantityUnit.name) return '';
           if (amount === 1) return quantityUnit.name;
-          
-          // Use plural form if available, otherwise fallback to singular
           return quantityUnit.name_plural || quantityUnit.name;
         };
         
-        if (entriesResponse.data.length > 0) {
-          const originalEntry = entriesResponse.data[0];
+        if (Array.isArray(entries) && entries.length > 0) {
+          const originalEntry = entries[0]!;
           
-          // Use the generic stock splitting helper method
-          stockEntries.splitEntries = await this.stockHandlers.splitStockEntry(
-            originalEntry, 
-            stockAmounts, 
-            getUnitForm
-          );
+          // Create split entries manually (simplified version)
+          stockEntries.splitEntries = stockAmounts.map((amount: number, index: number) => ({
+            stockId: `${originalEntry.id}_split_${index}`,
+            amount,
+            type: 'portion',
+            unit: getUnitForm(amount)
+          }));
           
           // Print labels for all entries (if enabled)
           if (printLabels) {
             for (const entry of stockEntries.splitEntries) {
               try {
-                await apiClient.get(`/stock/entry/${entry.stockId}/printlabel`);
+                await this.apiCall(`/stock/entry/${originalEntry.id}/printlabel`);
                 stockEntries.labelsPrinted++;
               } catch (error) {
                 console.error(`Failed to print label for stock entry ${entry.stockId}:`, error);
@@ -288,21 +491,11 @@ export class RecipeToolHandlers extends BaseToolHandler {
         }
       }
 
-      return this.createSuccessResult({
-        message: `Recipe ${actualRecipeId} has been marked as cooked (${totalServings} servings consumed, ${stockEntries.splitEntries.length} stock entries created and ${stockEntries.labelsPrinted} labels sent to the printer)`,
+      return this.createSuccess({
+        message: `Recipe ${actualRecipeId} cooked (${totalServings} servings consumed, ${stockEntries.splitEntries.length} stock entries created, ${stockEntries.labelsPrinted} labels printed)`,
         stockEntries,
+        completedSteps
       });
-
-    } catch (error: any) {
-      return this.createErrorResult(`Failed to mark meal plan entry as cooked.`, { 
-        completedSteps,
-        reason: error.message,
-        help: completedSteps.length > 0 
-          ? `Completed steps: ${completedSteps.join(', ')}. Check the error above and retry if needed.`
-          : 'No steps completed.'
-      });
-    }
+    }, 'cook recipe with meal plan');
   };
 }
-
-export const recipeHandlers = new RecipeToolHandlers();

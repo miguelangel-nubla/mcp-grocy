@@ -1,36 +1,58 @@
 #!/usr/bin/env node
 
-// Load environment variables from .env file
+/**
+ * Simplified main entry point
+ * Demonstrates the refactored architecture
+ */
+
+// Load environment variables
 import 'dotenv/config';
 
 import { GrocyMcpServer } from './server/mcp-server.js';
-import config from './config/environment.js';
+import { config } from './config/index.js';
 import { VERSION, PACKAGE_NAME as SERVER_NAME } from './version.js';
+import { logger } from './utils/logger.js';
+import { ErrorHandler } from './utils/errors.js';
 
-// Debug output to help identify version and naming issues
-console.error(`Starting ${SERVER_NAME} server version ${VERSION}`);
+// Startup banner
+logger.info(`Starting ${SERVER_NAME} v${VERSION}`, 'SERVER');
 
-async function main() {
-  try {
-    // Validate configuration early
-    const envConfig = config.get();
+async function main(): Promise<void> {
+  return ErrorHandler.handleAsync(async () => {
+    // Validate configuration
+    const cfg = config.getConfig();
     
-    // Ensure required environment variables
-    if (!config.hasApiKeyAuth()) {
-      console.error('[WARNING] No GROCY_APIKEY_VALUE configured. Some API calls may fail.');
+    // Check API key
+    if (!config.hasApiKey()) {
+      logger.warn('No API key configured. Some operations may fail.', 'CONFIG');
     }
-
-    // Create and start the server
-    const server = new GrocyMcpServer();
+    
+    // Log configuration summary
+    logger.config(`Grocy URL: ${config.getGrocyBaseUrl()}`);
+    logger.config(`SSL Verify: ${cfg.yaml.grocy.enable_ssl_verify}`);
+    logger.config(`HTTP Server: ${cfg.yaml.server.enable_http_server}`);
+    
+    // Create and start server
+    const server = await GrocyMcpServer.create();
     await server.start();
     
-  } catch (error) {
-    console.error('[ERROR] Failed to start server:', error);
-    process.exit(1);
-  }
+    logger.info('Server started successfully', 'SERVER');
+  }, 'server startup');
 }
 
+// Error handling
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception', 'PROCESS', { error });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled rejection', 'PROCESS', { reason, promise });
+  process.exit(1);
+});
+
+// Start the application
 main().catch((error) => {
-  console.error('[FATAL] Unhandled error:', error);
+  logger.error('Failed to start server', 'SERVER', { error });
   process.exit(1);
 });

@@ -42,6 +42,7 @@
     "express": "^5.1.0",
     "fuse.js": "^7.0.0",
     "uuid": "^11.1.0",
+    "yaml": "^2.8.1",
     "zod": "^3.22.0"
   },
   "devDependencies": {
@@ -55,6 +56,7 @@
     "@types/express": "^5.0.2",
     "@types/node": "^20.11.20",
     "@types/uuid": "^10.0.0",
+    "@types/yaml": "^1.9.6",
     "fs-extra": "^11.2.0",
     "semantic-release": "^22.0.12",
     "ts-node": "^10.9.1",

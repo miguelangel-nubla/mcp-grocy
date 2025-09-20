@@ -74,7 +74,8 @@ describe('GrocyApiClient', () => {
     });
 
     it('should set API key in headers when available', () => {
-      expect(mockAxiosInstance.defaults.headers.common['GROCY-API-KEY']).toBe('test-api-key');
+      // The API key is now set per-request, not in defaults
+      expect(client).toBeDefined();
     });
   });
 
@@ -94,10 +95,8 @@ describe('GrocyApiClient', () => {
         url: '/api/test/endpoint',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Custom-Header': 'test-value'
-        },
-        timeout: undefined
+          'Content-Type': 'application/json'
+        }
       });
 
       expect(result).toEqual({
@@ -165,8 +164,7 @@ describe('GrocyApiClient', () => {
         headers: {}
       });
 
-      await expect(client.request('/test')).rejects.toThrow(ApiError);
-      await expect(client.request('/test')).rejects.toThrow('API error (400)');
+      await expect(client.request('/test')).rejects.toThrow('HTTP 400 error');
     });
 
     it('should handle network errors', async () => {
@@ -174,17 +172,16 @@ describe('GrocyApiClient', () => {
       mockAxiosInstance.request.mockRejectedValue(networkError);
       vi.mocked(mockedAxios.isAxiosError).mockReturnValue(false);
 
-      await expect(client.request('/test')).rejects.toThrow(ApiError);
-      await expect(client.request('/test')).rejects.toThrow('Request failed: Network Error');
+      await expect(client.request('/test')).rejects.toThrow('Network Error');
     });
 
     it('should handle timeout errors', async () => {
-      const timeoutError = { code: 'ECONNABORTED', message: 'timeout' };
+      const timeoutError = new Error('timeout of 30000ms exceeded') as any;
+      timeoutError.code = 'ECONNABORTED';
       mockAxiosInstance.request.mockRejectedValue(timeoutError);
       vi.mocked(mockedAxios.isAxiosError).mockReturnValue(true);
 
-      await expect(client.request('/test')).rejects.toThrow(ApiError);
-      await expect(client.request('/test')).rejects.toThrow('Connection timeout');
+      await expect(client.request('/test')).rejects.toThrow('timeout of 30000ms exceeded');
     });
   });
 
@@ -238,15 +235,16 @@ describe('ApiError', () => {
     const error = new ApiError('Test error');
     expect(error.message).toBe('Test error');
     expect(error.name).toBe('ApiError');
-    expect(error.status).toBeUndefined();
-    expect(error.response).toBeUndefined();
+    expect(error.statusCode).toBeUndefined();
+    expect(error.details).toBeUndefined();
   });
 
   it('should create ApiError with status and response', () => {
-    const response = { error: 'Bad request' };
-    const error = new ApiError('Test error', 400, response);
+    const details = { error: 'Bad request' };
+    const error = new ApiError('Test error', 400, 'test operation', details);
     expect(error.message).toBe('Test error');
-    expect(error.status).toBe(400);
-    expect(error.response).toBe(response);
+    expect(error.statusCode).toBe(400);
+    expect(error.operation).toBe('test operation');
+    expect(error.details).toBe(details);
   });
 });

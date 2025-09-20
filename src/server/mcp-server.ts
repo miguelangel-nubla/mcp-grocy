@@ -1,10 +1,14 @@
+/**
+ * Simplified MCP Server implementation
+ * Reduced complexity and improved performance
+ */
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   CallToolResult,
   ErrorCode,
-  InitializeRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
@@ -12,55 +16,48 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { VERSION, PACKAGE_NAME as SERVER_NAME } from '../version.js';
-import { toolRegistry } from '../tools/index.js';
-import config from '../config/environment.js';
+import { createToolRegistry } from '../tools/index.js';
+import { config } from '../config/index.js';
 import { startHttpServer } from './http-server.js';
 import { ResourceHandler } from './resources.js';
+import { logger } from '../utils/logger.js';
+import { ErrorHandler } from '../utils/errors.js';
+
+interface ToolRegistry {
+  getDefinitions(): any[];
+  getHandler(name: string): any;
+  getToolNames(): string[];
+}
 
 export class GrocyMcpServer {
-  private server!: Server;
-  private enabledTools: Set<string> = new Set();
-  private toolSubConfigs: Map<string, Map<string, boolean>> = new Map();
+  private server: Server;
+  private enabledTools = new Set<string>();
+  private toolSubConfigs = new Map<string, Map<string, any>>();
   private resourceHandler: ResourceHandler;
+  private toolRegistry: ToolRegistry;
 
-  // Expose server instance for HTTP/SSE transport
-  public get serverInstance(): Server {
-    return this.server;
-  }
-
-  constructor() {
-    this.resourceHandler = new ResourceHandler();
+  private constructor(
+    server: Server,
+    toolRegistry: ToolRegistry,
+    resourceHandler: ResourceHandler
+  ) {
+    this.server = server;
+    this.toolRegistry = toolRegistry;
+    this.resourceHandler = resourceHandler;
     this.parseToolConfiguration();
-    this.setupServer();
+    this.setupHandlers();
+    this.setupErrorHandling();
   }
 
-  private parseToolConfiguration(): void {
-    const { enabledTools, toolSubConfigs } = config.parseToolConfiguration();
-    this.toolSubConfigs = toolSubConfigs;
-    
-    // Validate tool names against registry
-    const validToolNames = new Set(toolRegistry.getToolNames());
-    
-    if (enabledTools.size > 0) {
-      const invalidTools = Array.from(enabledTools).filter(tool => !validToolNames.has(tool));
-      if (invalidTools.length > 0) {
-        console.error(`[ERROR] Invalid tool names in configuration: ${invalidTools.join(', ')}`);
-        console.error(`[ERROR] Valid tool names are: ${Array.from(validToolNames).sort().join(', ')}`);
-        process.exit(1);
-      }
-      this.enabledTools = enabledTools;
-    } else {
-      console.error('[CONFIG] No tools enabled - server will have no tools available');
-    }
-  }
+  static async create(): Promise<GrocyMcpServer> {
+    // Initialize components
+    const [toolRegistry, resourceHandler] = await Promise.all([
+      createToolRegistry(),
+      Promise.resolve(new ResourceHandler())
+    ]);
 
-  private isToolAllowed(toolName: string): boolean {
-    // Only enabled tools are allowed - all others are disabled by default
-    return this.enabledTools.has(toolName);
-  }
-
-  private async setupServer(): Promise<void> {
-    this.server = new Server(
+    // Create server
+    const server = new Server(
       {
         name: SERVER_NAME,
         version: VERSION,
@@ -76,105 +73,82 @@ export class GrocyMcpServer {
       }
     );
 
-    this.setupHandlers();
-    this.setupErrorHandling();
+    return new GrocyMcpServer(server, toolRegistry, resourceHandler);
+  }
+
+  private parseToolConfiguration(): void {
+    const { enabledTools, toolSubConfigs } = config.parseToolConfiguration();
+    this.toolSubConfigs = toolSubConfigs;
+    
+    // Validate tool names
+    const validToolNames = new Set(this.toolRegistry.getToolNames());
+    
+    if (enabledTools.size > 0) {
+      const invalidTools = Array.from(enabledTools).filter(tool => !validToolNames.has(tool));
+      if (invalidTools.length > 0) {
+        const validNames = Array.from(validToolNames).sort().join(', ');
+        logger.error(`Invalid tools: ${invalidTools.join(', ')}. Valid: ${validNames}`, 'CONFIG');
+        process.exit(1);
+      }
+      this.enabledTools = enabledTools;
+      logger.config(`Enabled tools: ${Array.from(enabledTools).join(', ')}`);
+    } else {
+      logger.warn('No tools enabled', 'CONFIG');
+    }
   }
 
   private setupHandlers(): void {
     // Initialize handler
-    this.server.setRequestHandler(InitializeRequestSchema, async (request) => {
-      console.error('[DEBUG] Initialize handler called with request:', JSON.stringify(request));
-      return {
-        capabilities: {
-          tools: {},
-          resources: {},
-          prompts: {}
-        },
-        serverInfo: {
-          name: SERVER_NAME,
-          version: VERSION
-        }
-      };
-    });
-
-    // Plain initialize handler for compatibility
-    const PlainInitializeRequestSchema = z.object({
-      jsonrpc: z.literal('2.0'),
-      id: z.union([z.string(), z.number()]).optional(),
-      method: z.literal('initialize'),
-      params: z.any().optional()
-    });
-
-    this.server.setRequestHandler(PlainInitializeRequestSchema, async (request) => {
-      console.error('[DEBUG] Plain "initialize" handler called');
-      let protocolVersion = '2024-11-05';
-      if (request.params && typeof request.params.protocolVersion === 'string') {
-        protocolVersion = request.params.protocolVersion;
+    this.server.setRequestHandler(
+      z.object({ method: z.literal('initialize'), params: z.any().optional() }),
+      async (request) => {
+        logger.debug('Initialize request', 'MCP');
+        return {
+          protocolVersion: request.params?.protocolVersion || '2024-11-05',
+          capabilities: { tools: {}, resources: {}, prompts: {} },
+          serverInfo: { name: SERVER_NAME, version: VERSION }
+        };
       }
-      return {
-        protocolVersion,
-        capabilities: {
-          tools: {},
-          resources: {},
-          prompts: {}
-        },
-        serverInfo: {
-          name: SERVER_NAME,
-          version: VERSION
-        }
-      };
-    });
+    );
 
-    // List tools handler
+    // List tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const allTools = toolRegistry.getDefinitions();
-      const filteredTools = allTools.filter(tool => this.isToolAllowed(tool.name));
+      const allTools = this.toolRegistry.getDefinitions();
+      const filteredTools = allTools.filter(tool => this.enabledTools.has(tool.name));
       
-      console.error(`[CONFIG] Available tools: ${filteredTools.map(t => t.name).join(', ')}`);
-      
+      logger.config(`Available tools: ${filteredTools.map(t => t.name).join(', ')}`);
       return { tools: filteredTools };
     });
 
-    // Call tool handler
+    // Call tool
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const toolName = request.params.name;
+      const { name: toolName, arguments: args } = request.params;
       
-      // Check if the tool is allowed
-      if (!this.isToolAllowed(toolName)) {
+      // Check if tool is enabled
+      if (!this.enabledTools.has(toolName)) {
         throw new McpError(
-          ErrorCode.InvalidRequest, 
-          `Tool '${toolName}' is not enabled. Set TOOL__${toolName}=true in your configuration to enable it.`
+          ErrorCode.InvalidRequest,
+          `Tool '${toolName}' is not enabled. Enable it in your configuration.`
         );
       }
 
-      // Get handler from registry
-      const handler = toolRegistry.getHandler(toolName);
+      // Get handler
+      const handler = this.toolRegistry.getHandler(toolName);
       if (!handler) {
-        throw new McpError(
-          ErrorCode.MethodNotFound,
-          `Unknown tool: ${toolName}`
-        );
+        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
       }
 
       try {
         const subConfigs = this.toolSubConfigs.get(toolName);
-        const result = await handler(request.params.arguments, subConfigs);
-        return result as CallToolResult; // Cast to proper MCP type
+        const result = await handler(args, subConfigs);
+        return result as CallToolResult;
       } catch (error: any) {
-        console.error(`Error executing tool ${toolName}:`, error);
-        
-        if (error instanceof McpError) {
-          throw error;
-        }
-        
-        throw new McpError(
-          ErrorCode.InternalError,
-          `Tool execution failed: ${error.message || error}`
-        );
+        ErrorHandler.logError(error, `tool: ${toolName}`);
+        throw ErrorHandler.toMcpError(error, `Tool execution failed: ${toolName}`);
       }
     });
 
-    // Resource handlers
+    // Resources
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
       return this.resourceHandler.listResources();
     });
@@ -185,9 +159,12 @@ export class GrocyMcpServer {
   }
 
   private setupErrorHandling(): void {
-    this.server.onerror = (error) => console.error('[MCP Error]', error);
+    this.server.onerror = (error) => {
+      logger.error('MCP protocol error', 'MCP', { error });
+    };
     
     process.on('SIGINT', async () => {
+      logger.info('Shutting down server...', 'SERVER');
       await this.server.close();
       process.exit(0);
     });
@@ -197,21 +174,26 @@ export class GrocyMcpServer {
     // Start STDIO transport
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('Grocy MCP server running on stdio');
+    logger.info('MCP server running on stdio', 'SERVER');
 
-    // Start HTTP/SSE transport if enabled
-    const envConfig = config.get();
-    if (envConfig.ENABLE_HTTP_SERVER) {
+    // Start HTTP/SSE if enabled
+    const { yaml } = config.getConfig();
+    if (yaml.server.enable_http_server) {
       try {
-        console.error(`[CONFIG] Starting HTTP/SSE server on port ${envConfig.HTTP_SERVER_PORT}`);
-        const serverFactory = () => new GrocyMcpServer().serverInstance;
-        startHttpServer(serverFactory, envConfig.HTTP_SERVER_PORT);
+        logger.config(`Starting HTTP server on port ${yaml.server.http_server_port}`);
+        const serverFactory = () => this.server;
+        await startHttpServer(serverFactory, yaml.server.http_server_port);
       } catch (error) {
-        console.error('[ERROR] Failed to start HTTP/SSE server:', error);
+        logger.error('Failed to start HTTP server', 'SERVER', { error });
+        logger.error('HTTP server is explicitly enabled but cannot start - exiting', 'SERVER');
+        process.exit(1);
       }
-    } else {
-      console.error('[CONFIG] HTTP/SSE server is disabled');
     }
+  }
+
+  // Expose server for HTTP transport
+  public get serverInstance(): Server {
+    return this.server;
   }
 }
 
