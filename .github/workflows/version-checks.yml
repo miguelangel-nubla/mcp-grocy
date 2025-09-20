@@ -1,0 +1,151 @@
+name: Version Compatibility Checks
+
+run-name: 'Version Check - ${{ github.event_name }}'
+
+on:
+  schedule:
+  - cron: '0 12 * * 1' # Run every Monday at 12:00 UTC
+  workflow_dispatch:
+    # Allow manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write # For creating update issues
+
+jobs:
+  check-base-image:
+    name: Check Base Image for Hassio Addons
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Get Current Base Image Version
+      id: current-version
+      run: |
+        CURRENT_VERSION=$(grep -oP '(?<=ghcr.io/hassio-addons/base:)[0-9.]+' build.yaml | head -1)
+        if [ -z "$CURRENT_VERSION" ]; then
+          echo "No base image version found in build.yaml"
+          exit 1
+        fi
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Get Latest Base Image Version
+      id: extract-version
+      uses: ./.github/actions/get-github-release-version
+      with:
+        repository: hassio-addons/addon-base
+
+    - name: Create Issue for Outdated Base Image
+      if: steps.current-version.outputs.current_version != steps.extract-version.outputs.version
+      uses: actions/github-script@v8
+      with:
+        script: |
+          const title = `Update base image from ${{ steps.current-version.outputs.current_version }} to ${{ steps.extract-version.outputs.version }}`;
+          const body = `The base image for Home Assistant addons is outdated.
+
+          **Current version:** ${{ steps.current-version.outputs.current_version }}
+          **Latest version:** ${{ steps.extract-version.outputs.version }}
+
+          Please update the base image in \`build.yaml\` to the latest version.`;
+
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'dependencies'
+          });
+
+          const existingIssue = issues.find(issue => issue.title.includes('Update base image'));
+
+          if (!existingIssue) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['dependencies', 'enhancement']
+            });
+          }
+
+  check-grocy-version:
+    name: Check Grocy Version Compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: ./.github/actions/setup-node
+      with:
+        install-deps: 'false'
+
+    - name: Get Current Grocy Support Version
+      id: current-version
+      run: |
+        CURRENT_VERSION=$(node -p "require('./package.json').config.supportedGrocyVersion")
+        echo "current_supported_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Get Latest Grocy Release
+      id: extract-version
+      uses: ./.github/actions/get-github-release-version
+      with:
+        repository: grocy/grocy
+
+    - name: Create Issue for Grocy Update
+      if: steps.current-version.outputs.current_supported_version != steps.extract-version.outputs.version
+      uses: actions/github-script@v8
+      with:
+        script: |
+          const current = '${{ steps.current-version.outputs.current_supported_version }}';
+          const latest = '${{ steps.extract-version.outputs.version }}';
+          const [currentMajor, currentMinor] = current.split('.').map(Number);
+          const [latestMajor, latestMinor] = latest.split('.').map(Number);
+
+          let updateType = 'patch';
+          let priority = 'normal-priority';
+
+          if (currentMajor < latestMajor) {
+            updateType = 'major';
+            priority = 'high-priority';
+          } else if (currentMajor === latestMajor && currentMinor < latestMinor) {
+            updateType = 'minor';
+          }
+
+          const title = `Update Grocy compatibility from ${current} to ${latest}`;
+          const body = `A new Grocy version is available.
+
+          **Current supported version:** ${current}
+          **Latest Grocy version:** ${latest}
+          **Update type:** ${updateType}
+
+          ${updateType === 'major' ? '⚠️ **Major version update** - breaking changes might be present.' : 
+            updateType === 'minor' ? 'New features might be available.' : 
+            'Bug fixes might be available.'}`;
+
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'dependencies'
+          });
+
+          const existingIssue = issues.find(issue => issue.title.includes('Update Grocy compatibility'));
+
+          if (!existingIssue) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['dependencies', 'enhancement', priority]
+            });
+          }

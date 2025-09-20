@@ -1,33 +1,45 @@
 name: CI/CD Pipeline
 
+run-name: 'Release Pipeline ${{ github.ref_name }}@${{ github.sha }}'
+
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
-  contents: write # For semantic-release to create tags and releases
-  packages: write # For publishing Docker images to GHCR
-  pull-requests: write # For creating PRs and commenting on them
-  issues: write # For creating issues and commenting on them
+  contents: read
 
 jobs:
+  validate-config:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: ./.github/actions/setup-node
+
+    - name: Validate release configuration
+      run: npm run verify-release-config
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Required for commitlint to analyze all commit messages
+        fetch-depth: 0
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm install
+    - name: Setup Node.js
+      uses: ./.github/actions/setup-node
 
     - name: Lint commit messages
       run: npx commitlint --from $(git rev-list --max-parents=0 HEAD) --to HEAD || echo "Commit linting warnings found but continuing build"
@@ -35,39 +47,28 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [ lint ]
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm install
+    - name: Setup Node.js
+      uses: ./.github/actions/setup-node
 
     - name: Run tests
       run: npm test
       env:
-        # Use mock mode for tests to avoid hitting real API endpoints
         NODE_ENV: test
         MOCK_API: true
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [ test ]
+    timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm install
+    - name: Setup Node.js
+      uses: ./.github/actions/setup-node
 
     - name: Build
       run: npm run build
@@ -82,174 +83,38 @@ jobs:
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
-    needs: [ build, test ]
+    timeout-minutes: 15
+    needs: [ build, test, validate-config, lint ]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write # For semantic-release to create tags and releases
+      pull-requests: write # For creating PRs and commenting on them
+      issues: write # For creating issues and commenting on them
     outputs:
       new_release_published: ${{ steps.semantic-release.outputs.new_release_published }}
       new_release_version: ${{ steps.semantic-release.outputs.new_release_version }}
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Required for semantic-release to analyze all commit messages
+        fetch-depth: 0
         persist-credentials: true
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        registry-url: 'https://registry.npmjs.org'
-
-    - name: Install dependencies # Add this step
-      run: npm ci
-
-    - name: Install yq
-      run: |
-        sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
-      shell: bash
+      uses: ./.github/actions/setup-node
 
     - name: Release
-      id: semantic-release # Add id here
+      id: semantic-release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      run: |
-        npx semantic-release --debug
-
-        # Extract version from package.json for subsequent jobs if semantic-release succeeds but doesn't set outputs
-        if [ $? -eq 0 ]; then
-          VERSION=$(node -p "require('./package.json').version")
-          echo "new_release_published=true" >> $GITHUB_OUTPUT
-          echo "new_release_version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Successfully released version: $VERSION"
-        else
-          echo "::error::Semantic release failed or determined no release is needed"
-          echo "new_release_published=false" >> $GITHUB_OUTPUT
-        fi
-
-    # Ensure release version is set for downstream jobs
-    - name: Ensure release version output is set
-      if: steps.semantic-release.outputs.new_release_version == '' || steps.semantic-release.outputs.new_release_version == null
-      run: |
-        VERSION=$(node -p "require('./package.json').version")
-        echo "new_release_version=$VERSION" >> $GITHUB_OUTPUT
-        echo "new_release_published=true" >> $GITHUB_OUTPUT
-        echo "Set new_release_version to $VERSION from package.json"
-
-    - name: Log version info
-      if: steps.semantic-release.outputs.new_release_published == 'true'
-      run: |
-        echo "New release published: ${{ steps.semantic-release.outputs.new_release_published }}"
-        echo "New release version: ${{ steps.semantic-release.outputs.new_release_version }}"
-
-  publish-npm:
-    name: Publish Package to NPM
-    runs-on: ubuntu-latest
-    needs: [ release ]
-    if: needs.release.outputs.new_release_published == 'true'
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        ref: main # Ensure we're using the code from main branch after release
-        fetch-depth: 0 # Fetch all history for proper versioning
-        fetch-tags: true # Fetch all tags to ensure release tag is available
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        registry-url: 'https://registry.npmjs.org'
-
-    - name: Verify NPM_TOKEN secret
-      env:
-        CHECK_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
-      run: |
-        if [[ "$CHECK_TOKEN" != "true" ]]; then
-          echo "::error::NPM_TOKEN secret is not set. Cannot publish to NPM."
-          exit 1
-        else
-          echo "NPM_TOKEN secret is available"
-        fi
-
-    # Check if this version already exists in the npm registry
-    - name: Check if package version already exists
-      id: check_package
-      run: |
-        VERSION="${{ needs.release.outputs.new_release_version }}"
-        echo "Checking if npm package for version $VERSION already exists..."
-
-        # Try to get version info from npm - will exit with non-zero if it doesn't exist
-        if npm view mcp-grocy-api@$VERSION version &>/dev/null; then
-          echo "Package already exists in registry. Skipping publish."
-          echo "package_exists=true" >> $GITHUB_OUTPUT
-        else
-          echo "Package does not exist yet. Proceeding with publish."
-          echo "package_exists=false" >> $GITHUB_OUTPUT
-        fi
-    # Install dependencies
-    - name: Install dependencies
-      if: steps.check_package.outputs.package_exists != 'true'
-      run: npm install
-
-    # Build the package
-    - name: Build
-      if: steps.check_package.outputs.package_exists != 'true'
-      run: npm run build
-
-    # Update package.json version to match release if needed
-    - name: Ensure package version matches release version
-      if: steps.check_package.outputs.package_exists != 'true'
-      run: |
-        CURRENT_VERSION=$(node -p "require('./package.json').version")
-        RELEASE_VERSION="${{ needs.release.outputs.new_release_version }}"
-
-        if [ "$CURRENT_VERSION" != "$RELEASE_VERSION" ]; then
-          echo "Updating package.json version from $CURRENT_VERSION to $RELEASE_VERSION"
-          npm version $RELEASE_VERSION --no-git-tag-version
-        else
-          echo "Package.json version already matches release version: $CURRENT_VERSION"
-        fi
-    # # Publish to npm with better error handling and retries
-    # - name: Publish package
-    #   if: steps.check_package.outputs.package_exists != 'true'
-    #   run: |
-    #     # Publish with retry logic
-    #     MAX_RETRIES=3
-    #     RETRY_COUNT=0
-
-    #     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    #       if npm publish --access public; then
-    #         echo "Package published successfully to NPM"
-    #         break
-    #       else
-    #         RETRY_COUNT=$((RETRY_COUNT+1))
-    #         if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-    #           echo "Publish failed, retrying in 10 seconds (attempt $RETRY_COUNT/$MAX_RETRIES)..."
-    #           sleep 10
-    #         else
-    #           echo "::error::Failed to publish package after $MAX_RETRIES attempts"
-    #           exit 1
-    #         fi
-    #       fi
-    #     done
-    #   env:
-    #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-    # # Summary
-    # - name: NPM Publish Summary
-    #   run: |
-    #     VERSION="${{ needs.release.outputs.new_release_version }}"
-    #     if [[ "${{ steps.check_package.outputs.package_exists }}" == "true" ]]; then
-    #       echo "Package for version $VERSION already exists in the registry. No new package was published."
-    #     else
-    #       echo "Successfully published NPM package version $VERSION."
-    #     fi
+      run: npx semantic-release --debug
 
   call-publish-docker:
     name: Publish Docker Image
-    needs: [ publish-npm, release ]
+    needs: [ release ]
     if: needs.release.outputs.new_release_published == 'true'
+    permissions:
+      packages: write # For publishing Docker images to GHCR
     uses: ./.github/workflows/publish-docker.yml
     with:
       release_version: ${{ needs.release.outputs.new_release_version }}

@@ -85,5 +85,8 @@
   "homepage": "https://github.com/miguelangel-nubla/mcp-grocy#readme",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "config": {
+    "supportedGrocyVersion": "4.5.0"
   }
 }

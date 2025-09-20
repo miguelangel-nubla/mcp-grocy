@@ -1,5 +1,7 @@
 name: Publish Docker Image
 
+run-name: 'Publish Docker v${{ inputs.release_version }}'
+
 on:
   workflow_call:
     inputs:
@@ -7,108 +9,62 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: publish-docker-${{ inputs.release_version }}
+  cancel-in-progress: false
+
+
 jobs:
   publish-docker:
     name: Publish Docker Image to GHCR
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       RELEASE_VERSION: ${{ inputs.release_version }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: main
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
 
-      - name: Check release version is set
-        run: |
-          if [ -z "$RELEASE_VERSION" ]; then
-            echo "Fallback: version from package.json: $RELEASE_VERSION"
-          fi
-          if [ -z "$RELEASE_VERSION" ]; then
-            exit 1
-          fi
-          echo "Using version: $RELEASE_VERSION"
-        shell: bash
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Check if image already exists
+      id: check_image
+      run: |
+        echo "Checking if Docker image for version $RELEASE_VERSION already exists..."
+        if docker buildx imagetools inspect ghcr.io/${{ github.repository }}:$RELEASE_VERSION &>/dev/null; then
+          echo "image_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "image_exists=false" >> $GITHUB_OUTPUT
+        fi
 
-      - name: Check if image already exists
-        id: check_image
-        run: |
-          if [ -z "$RELEASE_VERSION" ]; then
-            export RELEASE_VERSION=$(node -p "require('./package.json').version")
-          fi
-          echo "Checking if Docker image for version $RELEASE_VERSION already exists..."
-          if docker buildx imagetools inspect ghcr.io/${{ github.repository }}:$RELEASE_VERSION &>/dev/null; then
-            echo "image_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "image_exists=false" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
+    - name: Setup Docker
+      if: steps.check_image.outputs.image_exists != 'true'
+      uses: ./.github/actions/setup-docker
 
-      - name: Set up QEMU
-        if: steps.check_image.outputs.image_exists != 'true'
-        uses: docker/setup-qemu-action@v3
+    - name: Build and push multi-platform image
+      if: steps.check_image.outputs.image_exists != 'true'
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ env.RELEASE_VERSION }}
+          ghcr.io/${{ github.repository }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-      - name: Set up Docker Buildx
-        if: steps.check_image.outputs.image_exists != 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push AMD64 image
-        if: steps.check_image.outputs.image_exists != 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest-amd64
-          build-args: |
-            NODE_VERSION=20
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:latest-amd64
-          cache-to: type=inline
-
-      - name: Build and push ARM64 image
-        if: steps.check_image.outputs.image_exists != 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest-arm64
-          build-args: |
-            NODE_OPTIONS=--max_old_space_size=4096
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:latest-arm64
-          cache-to: type=inline
-
-      - name: Create and push manifest
-        if: steps.check_image.outputs.image_exists != 'true'
-        run: |
-          if [ -z "$RELEASE_VERSION" ]; then
-            export RELEASE_VERSION=$(node -p "require('./package.json').version")
-            if [ -z "$RELEASE_VERSION" ]; then
-              echo "Error: RELEASE_VERSION is empty and could not be determined from package.json."
-              exit 1
-            fi
-          fi
-          echo "Creating manifest for version: $RELEASE_VERSION"
-          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:$RELEASE_VERSION ghcr.io/${{ github.repository }}:latest-amd64 ghcr.io/${{ github.repository }}:latest-arm64
-          echo "Creating manifest for tag: latest"
-          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:latest ghcr.io/${{ github.repository }}:latest-amd64 ghcr.io/${{ github.repository }}:latest-arm64
-        shell: bash
-
-      - name: Docker Publish Summary
-        run: |
-          if [ -z "$RELEASE_VERSION" ]; then
-            export RELEASE_VERSION=$(node -p "require('./package.json').version")
-          fi
-          if [[ "${{ steps.check_image.outputs.image_exists }}" == "true" ]]; then
-            echo "Image for version $RELEASE_VERSION already exists in the registry. No new image was built."
-          fi
-        shell: bash
+    - name: Docker Publish Summary
+      run: |
+        if [[ "${{ steps.check_image.outputs.image_exists }}" == "true" ]]; then
+          echo "Image for version $RELEASE_VERSION already exists in the registry. No new image was built."
+        else
+          echo "Successfully built and published Docker image for version $RELEASE_VERSION"
+        fi

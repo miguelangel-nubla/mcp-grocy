@@ -1,0 +1,28 @@
+name: 'Get GitHub Release Version'
+description: 'Get the latest release version from a GitHub repository'
+inputs:
+  repository:
+    description: 'GitHub repository (owner/repo format)'
+    required: true
+  strip-v-prefix:
+    description: 'Whether to strip "v" prefix from version'
+    required: false
+    default: 'true'
+outputs:
+  version:
+    description: 'The latest release version'
+    value: ${{ steps.get-version.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Get latest release version
+    id: get-version
+    run: |
+      if [[ "${{ inputs.strip-v-prefix }}" == "true" ]]; then
+        VERSION=$(curl -s -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ inputs.repository }}/releases/latest | jq -r '.tag_name | ltrimstr("v")')
+      else
+        VERSION=$(curl -s -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ inputs.repository }}/releases/latest | jq -r '.tag_name')
+      fi
+      echo "version=$VERSION" >> $GITHUB_OUTPUT
+    shell: bash
