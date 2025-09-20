@@ -109,15 +109,7 @@ jobs:
         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       run: npx semantic-release --debug
 
-  call-publish-docker:
-    name: Publish Docker Image
-    needs: [ release ]
-    if: needs.release.outputs.new_release_published == 'true'
-    permissions:
-      packages: write # For publishing Docker images to GHCR
-    uses: ./.github/workflows/publish-docker.yml
-    with:
-      release_version: ${{ needs.release.outputs.new_release_version }}
+  # Note: Docker publishing is now handled by a separate workflow that triggers on tag creation
   # Note: Home Assistant addon building is now handled automatically
   # by the Builder workflow in the hassio-addons repository.
   # The Builder workflow detects submodule updates and builds addons automatically.
