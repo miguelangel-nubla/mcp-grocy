@@ -157,20 +157,25 @@ export class ModuleLoader {
 }
 
 // Factory function
-export async function createToolRegistry(): Promise<{ getDefinitions(): any[]; getHandler(name: string): any; getToolNames(): string[] }> {
+export async function createToolRegistry(): Promise<{ getDefinitions(): any[]; getHandler(name: string): any; getValidator(name: string): any; getToolNames(): string[] }> {
   const { toolModules } = await ModuleLoader.loadAllModules();
   
   const definitions: any[] = [];
   const handlers: Record<string, any> = {};
+  const validators: Record<string, any> = {};
   
   for (const module of toolModules) {
     definitions.push(...module.definitions);
     Object.assign(handlers, module.handlers);
+    if (module.validators) {
+      Object.assign(validators, module.validators);
+    }
   }
   
   return {
     getDefinitions: () => definitions,
     getHandler: (name: string) => handlers[name],
+    getValidator: (name: string) => validators[name],
     getToolNames: () => definitions.map(def => def.name)
   };
 }

@@ -20,7 +20,10 @@ export interface ToolHandler {
   (args: any, subConfigs?: Map<string, any>): Promise<ToolResult>;
 }
 
+export type SubConfigValidator = (subConfigs: Map<string, any>) => void;
+
 export interface ToolModule {
   definitions: ToolDefinition[];
   handlers: Record<string, ToolHandler>;
+  validators?: Record<string, SubConfigValidator>;
 }

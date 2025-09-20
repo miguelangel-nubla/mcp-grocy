@@ -2,7 +2,8 @@
  * Recipe tools sub-configuration validation functions
  */
 
-import { ValidationHelpers, type SubConfigValidator } from '../validation-helpers.js';
+import { ValidationHelpers } from '../validation-helpers.js';
+import { type SubConfigValidator } from '../types.js';
 
 /**
  * Validation function for complete tool sub-configurations

@@ -1,6 +1,7 @@
 import { ToolModule } from '../types.js';
 import { recipeToolDefinitions } from './definitions.js';
 import { RecipeToolHandlers } from './handlers.js';
+import { validateCompleteSubConfigs } from './validations.js';
 
 // Use simplified handlers
 const handlers = new RecipeToolHandlers();
@@ -31,6 +32,9 @@ export const recipeModule: ToolModule = {
     // Shopping Integration
     recipes_shopping_add_all_products: handlers.addAllProductsToShopping,
     recipes_shopping_add_missing_products: handlers.addMissingProductsToShopping
+  },
+  validators: {
+    recipes_cooking_complete: validateCompleteSubConfigs
   }
 };
 
