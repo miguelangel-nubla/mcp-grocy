@@ -14,7 +14,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Environment schema
 const EnvironmentSchema = z.object({
+  // Grocy Configuration
+  GROCY_BASE_URL: z.string().url().optional(),
   GROCY_APIKEY_VALUE: z.string().optional(),
+  GROCY_ENABLE_SSL_VERIFY: z.enum(['true', 'false']).optional(),
+  
+  // Server Configuration  
+  REST_RESPONSE_SIZE_LIMIT: z.string().regex(/^\d+$/).optional(),
+  ENABLE_HTTP_SERVER: z.enum(['true', 'false']).optional(),
+  HTTP_SERVER_PORT: z.string().regex(/^\d+$/).optional(),
+  
+  // Logging Configuration
+  LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional(),
+  LOG_CATEGORIES: z.string().optional(),
+  
+  // Build Configuration
   RELEASE_VERSION: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).optional(),
 });
@@ -28,6 +42,7 @@ const YamlConfigSchema = z.object({
   
   grocy: z.object({
     base_url: z.string().url().default('http://localhost:9283'),
+    api_key: z.string().optional(),
     enable_ssl_verify: z.boolean().default(true),
     response_size_limit: z.number().positive().default(10000),
   }).default({}),
@@ -71,6 +86,9 @@ export class ConfigManager {
     
     // Load YAML configuration
     const yaml = this.loadYamlConfig(configPath);
+    
+    // Apply environment variable overrides
+    this.applyEnvironmentOverrides(yaml, env);
     
     return { env, yaml };
   }
@@ -139,29 +157,48 @@ export class ConfigManager {
     return this.config;
   }
 
-  public getGrocyBaseUrl(): string {
-    return this.config.yaml.grocy.base_url;
-  }
-
   public getApiUrl(): string {
-    const baseUrl = this.getGrocyBaseUrl();
+    const baseUrl = this.config.yaml.grocy.base_url;
     return baseUrl.endsWith('/') ? `${baseUrl}api` : `${baseUrl}/api`;
-  }
-
-  public hasApiKey(): boolean {
-    return !!this.config.env.GROCY_APIKEY_VALUE;
-  }
-
-  public getApiKey(): string | undefined {
-    return this.config.env.GROCY_APIKEY_VALUE;
   }
 
   public getCustomHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
-    if (this.config.env.GROCY_APIKEY_VALUE) {
-      headers['GROCY-API-KEY'] = this.config.env.GROCY_APIKEY_VALUE;
+    if (this.config.yaml.grocy.api_key) {
+      headers['GROCY-API-KEY'] = this.config.yaml.grocy.api_key;
     }
     return headers;
+  }
+
+  /**
+   * Apply environment variable overrides to YAML configuration
+   */
+  private applyEnvironmentOverrides(yaml: YamlConfig, env: Environment): void {
+    // Grocy configuration overrides
+    if (env.GROCY_BASE_URL) {
+      yaml.grocy.base_url = env.GROCY_BASE_URL;
+    }
+    
+    if (env.GROCY_APIKEY_VALUE) {
+      yaml.grocy.api_key = env.GROCY_APIKEY_VALUE;
+    }
+    
+    if (env.GROCY_ENABLE_SSL_VERIFY !== undefined) {
+      yaml.grocy.enable_ssl_verify = env.GROCY_ENABLE_SSL_VERIFY === 'true';
+    }
+    
+    if (env.REST_RESPONSE_SIZE_LIMIT !== undefined) {
+      yaml.grocy.response_size_limit = parseInt(env.REST_RESPONSE_SIZE_LIMIT, 10);
+    }
+    
+    // Server configuration overrides
+    if (env.ENABLE_HTTP_SERVER !== undefined) {
+      yaml.server.enable_http_server = env.ENABLE_HTTP_SERVER === 'true';
+    }
+    
+    if (env.HTTP_SERVER_PORT !== undefined) {
+      yaml.server.http_server_port = parseInt(env.HTTP_SERVER_PORT, 10);
+    }
   }
 
   public parseToolConfiguration(): { 

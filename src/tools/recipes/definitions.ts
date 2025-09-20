@@ -1,5 +1,5 @@
 import { ToolDefinition } from '../types.js';
-import config from '../../config/environment.js';
+import { config } from '../../config/index.js';
 
 export const recipeToolDefinitions: ToolDefinition[] = [
   // ==================== RECIPE MANAGEMENT ====================

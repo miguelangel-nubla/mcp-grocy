@@ -16,8 +16,8 @@ vi.mock('../../api/client.js', () => ({
 }));
 
 // Mock config
-vi.mock('../../config/environment.js', () => ({
-  default: {
+vi.mock('../../config/index.js', () => ({
+  config: {
     parseToolConfiguration: vi.fn(() => ({
       toolSubConfigs: new Map([
         ['cooked_something', new Map([

@@ -72,13 +72,14 @@ export class SystemToolHandlers extends BaseToolHandler {
       });
       const endTime = Date.now();
       
+      const { yaml } = config.getConfig();
       const responseObj = {
         request: {
-          url: `${config.getGrocyBaseUrl()}${normalizedEndpoint}`,
+          url: `${yaml.grocy.base_url}${normalizedEndpoint}`,
           method,
           headers: { ...config.getCustomHeaders(), ...headers },
           body,
-          authMethod: config.hasApiKey() ? 'apikey' : 'none'
+          authMethod: yaml.grocy.api_key ? 'apikey' : 'none'
         },
         response: {
           statusCode: response.status,
@@ -96,9 +97,10 @@ export class SystemToolHandlers extends BaseToolHandler {
 
       return this.createSuccess(responseObj);
     } catch (error: any) {
+      const { yaml } = config.getConfig();
       return this.createError(`Test request failed: ${error.message}`, {
         request: {
-          url: `${config.getGrocyBaseUrl()}${normalizedEndpoint}`,
+          url: `${yaml.grocy.base_url}${normalizedEndpoint}`,
           method,
           headers: { ...config.getCustomHeaders(), ...headers },
           body

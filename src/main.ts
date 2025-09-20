@@ -23,12 +23,12 @@ async function main(): Promise<void> {
     const cfg = config.getConfig();
     
     // Check API key
-    if (!config.hasApiKey()) {
+    if (!cfg.yaml.grocy.api_key) {
       logger.warn('No API key configured. Some operations may fail.', 'CONFIG');
     }
     
     // Log configuration summary
-    logger.config(`Grocy URL: ${config.getGrocyBaseUrl()}`);
+    logger.config(`Grocy URL: ${cfg.yaml.grocy.base_url}`);
     logger.config(`SSL Verify: ${cfg.yaml.grocy.enable_ssl_verify}`);
     logger.config(`HTTP Server: ${cfg.yaml.server.enable_http_server}`);
     

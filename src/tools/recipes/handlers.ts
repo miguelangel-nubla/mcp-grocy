@@ -338,8 +338,8 @@ export class RecipeToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const { mealPlanEntryId, recipeId, stockAmounts } = args || {};
       
-      // Get configuration from environment
-      const config = await import('../../config/environment.js').then(m => m.default);
+      // Get configuration from unified config
+      const { config } = await import('../../config/index.js');
       const { toolSubConfigs } = config.parseToolConfiguration();
       const subConfigs = toolSubConfigs?.get('cooked_something');
       
