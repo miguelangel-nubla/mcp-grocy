@@ -50,7 +50,4 @@ jobs:
       with:
         context: .
         platforms: linux/amd64,linux/arm64
-        push: false
-        tags: test-mcp-grocy:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        tags: test-mcp-grocy:${{ github.sha }}
