@@ -6,9 +6,11 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { VERSION, PACKAGE_NAME as SERVER_NAME } from '../version.js';
 import cors from 'cors';
 import http from 'http';
+import { logger } from '../utils/logger.js';
 
 // HTTP Transport for MCP (Context7 style)
-export function startHttpServer(mcpServer: Server | (() => Server), port: number = 8080) {
+export function startHttpServer(mcpServer: Server | (() => Server), port: number = 8080): Promise<http.Server> {
+  return new Promise((resolve, reject) => {
   const app = express();
   
   // Enable JSON body parsing with increased limit
@@ -26,7 +28,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
   }));
 
   // Simple health check endpoint
-  app.get('/', (req, res) => {
+  app.get('/', (_req, res) => {
     res.json({
       status: 'ok',
       service: SERVER_NAME,
@@ -46,8 +48,8 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
   const sseServerInstances: Record<string, Server> = {};
 
   // Simplified request logging
-  app.use((req, res, next) => {
-    console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  app.use((req, _res, next) => {
+    logger.server(`${req.method} ${req.path}`);
     next();
   });
 
@@ -69,7 +71,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
       // Accept header check (can be done early)
       const accept = req.headers.accept || '';
       if (!accept.includes('application/json') && !accept.includes('text/event-stream')) {
-        console.error('[ERROR] Client must accept application/json or text/event-stream');
+        logger.error('Client must accept application/json or text/event-stream', 'server');
         res.status(406).json({
           jsonrpc: '2.0',
           error: {
@@ -108,11 +110,11 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
         };
 
         const serverInstance = getServerInstance();
-        await serverInstance.connect(transport);
+        await serverInstance.connect(transport as any); // Type assertion to work around SDK type issue
       }
 
       if (!transport) {
-        console.error('[CRITICAL_ERROR] Transport is undefined before handling request. This should not happen.');
+        logger.error('Transport is undefined before handling request. This should not happen.', 'server');
         res.status(500).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Internal server error: Transport not available' }, id: req.body?.id || null });
         return;
       }
@@ -124,7 +126,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
       await transport.handleRequest(req, res, req.body);
 
     } catch (error) {
-      console.error('[ERROR] Failed to handle streamable HTTP request:', error);
+      logger.error('Failed to handle streamable HTTP request', 'server', { error });
       
       // Send error response if headers not sent yet
       if (!res.headersSent) {
@@ -161,7 +163,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
       
       res.on('close', cleanup);
       res.on('error', (err) => {
-        console.error(`[ERROR] SSE connection error for session ${sessionId}:`, err);
+        logger.error(`SSE connection error for session ${sessionId}`, 'server', { error: err });
         cleanup();
       });
       
@@ -171,7 +173,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
       
       // Connect transport to isolated MCP server (non-blocking)
       isolatedServer.connect(transport).catch((error) => {
-        console.error(`[ERROR] Failed to connect SSE transport for session ${sessionId}:`, error);
+        logger.error(`Failed to connect SSE transport for session ${sessionId}`, 'server', { error });
         cleanup();
         if (!res.headersSent) {
           res.status(500).end();
@@ -181,7 +183,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
       // Send initial comment to keep connection alive
       res.write(': connected\n\n');
     } catch (error) {
-      console.error('[ERROR] Failed to handle SSE connection:', error);
+      logger.error('Failed to handle SSE connection', 'server', { error });
       
       if (!res.headersSent) {
         res.status(500).send('Internal Server Error');
@@ -208,7 +210,7 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
       try {
         await transport.handlePostMessage(req, res, req.body);
       } catch (error) {
-        console.error(`[ERROR] Failed to handle SSE message for session ${sessionId}:`, error);
+        logger.error(`Failed to handle SSE message for session ${sessionId}`, 'server', { error });
         res.status(500).json({
           error: `Internal server error: ${error instanceof Error ? error.message : String(error)}`,
           status: 500
@@ -222,22 +224,23 @@ export function startHttpServer(mcpServer: Server | (() => Server), port: number
     }
   });
 
-  // Create HTTP server with explicit error handling
-  const server = http.createServer(app);
-  
-  server.on('error', (error) => {
-    console.error(`[ERROR] HTTP server error: ${error.message}`);
+    // Create HTTP server with explicit error handling
+    const server = http.createServer(app);
+    
+    server.on('error', (error) => {
+      logger.error(`HTTP server error: ${error.message}`, 'server');
+      reject(error);
+    });
+    
+    // Start the server
+    server.listen(port, () => {
+      logger.server(`HTTP server listening on port ${port}`);
+      logger.server(`Available endpoints:`);
+      logger.server(`  - Health check: http://localhost:${port}/`);
+      logger.server(`  - Streamable HTTP: http://localhost:${port}/mcp`);
+      logger.server(`  - SSE: http://localhost:${port}/mcp/sse`);
+      logger.server(`  - SSE Messages: http://localhost:${port}/mcp/messages`);
+      resolve(server);
+    });
   });
-  
-  // Start the server
-  server.listen(port, () => {
-    console.error(`[MCP] HTTP server listening on port ${port}`);
-    console.error(`[MCP] Available endpoints:`);
-    console.error(`[MCP]   - Health check: http://localhost:${port}/`);
-    console.error(`[MCP]   - Streamable HTTP: http://localhost:${port}/mcp`);
-    console.error(`[MCP]   - SSE: http://localhost:${port}/mcp/sse`);
-    console.error(`[MCP]   - SSE Messages: http://localhost:${port}/mcp/messages`);
-  });
-  
-  return server;
 }

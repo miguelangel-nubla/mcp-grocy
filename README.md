@@ -139,7 +139,7 @@ docker compose up -d
 |--------|----------|---------|
 | **`.env` file** | Recommended for most users | `cp .env.example .env` |
 | **Environment variables** | CI/CD, containers | `GROCY_BASE_URL=... GROCY_APIKEY_VALUE=... mcp-grocy` |
-| **Tool toggles** | Customize functionality | Edit `TOOL__*` variables in `.env` |
+| **Tool configuration** | Customize functionality | Edit `tools` section in `mcp-grocy.yaml` |
 
 📖 **For complete configuration reference:** See [Configuration Guide](src/resources/config.md)
 
@@ -172,7 +172,7 @@ npm start
 |----------|---------|-------------|
 | [📖 API Reference](src/resources/api-reference.md) | Complete tool documentation | Tool usage and examples |
 | [⚙️ Configuration Guide](src/resources/config.md) | Advanced configuration reference | Detailed setup, presets, troubleshooting |
-| [📋 .env.example](.env.example) | Configuration template with ALL tools | Copy and customize for your setup |
+| [📋 .env.example](.env.example) | Environment configuration template | Copy and customize for your setup |
 | [🧪 MCP Inspector](https://github.com/modelcontextprotocol/inspector) | Protocol debugging | Debug MCP interactions |
 
 ### 🆘 Troubleshooting
@@ -190,12 +190,12 @@ npm start
 - Ensure the API key has proper permissions
 
 **"Tool not found" errors**
-- Check if the tool is enabled in your `.env` file (tool toggles)
+- Check if the tool is enabled in your `mcp-grocy.yaml` file
 - Verify you're using the correct tool names from the API reference
 
 **Large response errors**
 - Increase `REST_RESPONSE_SIZE_LIMIT` if you have many products/stock entries
-- Consider using tool toggles to disable unused functionality
+- Consider disabling unused tools in `mcp-grocy.yaml`
 
 #### Debug Mode
 

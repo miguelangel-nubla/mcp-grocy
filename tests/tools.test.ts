@@ -1,42 +1,43 @@
-import { describe, it, expect } from 'vitest';
-import { ToolRegistry } from '../src/tools/index.js';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { createToolRegistry } from '../src/tools/index.js';
 
 describe('ToolRegistry', () => {
+  let registry: any;
+
+  beforeAll(async () => {
+    registry = await createToolRegistry();
+  });
+
   it('should register all tool definitions', () => {
-    const registry = new ToolRegistry();
     const definitions = registry.getDefinitions();
     
     expect(definitions).toBeDefined();
     expect(definitions.length).toBeGreaterThan(30); // We should have 30+ tools
     
-    // Check for some key tools
+    // Check for some key namespaced tools
     const toolNames = definitions.map(def => def.name);
-    expect(toolNames).toContain('get_products');
-    expect(toolNames).toContain('get_all_stock');
-    expect(toolNames).toContain('get_recipes');
-    expect(toolNames).toContain('purchase_product');
-    expect(toolNames).toContain('consume_product');
+    expect(toolNames).toContain('inventory_products_get');
+    expect(toolNames).toContain('inventory_stock_get_all');
+    expect(toolNames).toContain('recipes_management_get');
+    expect(toolNames).toContain('inventory_transactions_purchase');
+    expect(toolNames).toContain('inventory_transactions_consume');
   });
 
   it('should have handlers for all defined tools', () => {
-    const registry = new ToolRegistry();
     const definitions = registry.getDefinitions();
     
     for (const definition of definitions) {
-      expect(registry.hasHandler(definition.name)).toBe(true);
-      expect(registry.getHandler(definition.name)).toBeDefined();
+      const handler = registry.getHandler(definition.name);
+      expect(handler).toBeDefined();
+      expect(typeof handler).toBe('function');
     }
   });
 
   it('should return undefined for non-existent handlers', () => {
-    const registry = new ToolRegistry();
-    
-    expect(registry.hasHandler('non_existent_tool')).toBe(false);
     expect(registry.getHandler('non_existent_tool')).toBeUndefined();
   });
 
   it('should return correct tool names', () => {
-    const registry = new ToolRegistry();
     const toolNames = registry.getToolNames();
     const definitions = registry.getDefinitions();
     
@@ -46,8 +47,13 @@ describe('ToolRegistry', () => {
 });
 
 describe('Tool Definitions Structure', () => {
-  const registry = new ToolRegistry();
-  const definitions = registry.getDefinitions();
+  let registry: any;
+  let definitions: any[];
+
+  beforeAll(async () => {
+    registry = await createToolRegistry();
+    definitions = registry.getDefinitions();
+  });
 
   it('should have valid structure for all tool definitions', () => {
     for (const definition of definitions) {

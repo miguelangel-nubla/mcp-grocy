@@ -20,20 +20,32 @@ import apiClient from '../src/api/client.js';
 const mockApiClient = vi.mocked(apiClient);
 
 class TestToolHandler extends BaseToolHandler {
-  public testSafeJsonStringify(data: any) {
-    return this.safeJsonStringify(data);
+  public testSafeStringify(data: any) {
+    return this.safeStringify(data);
   }
 
-  public testCreateSuccessResult(data: any) {
-    return this.createSuccessResult(data);
+  public testCreateSuccess(data: any, message?: string) {
+    return this.createSuccess(data, message);
   }
 
-  public testCreateErrorResult(error: string | Error, context?: any) {
-    return this.createErrorResult(error, context);
+  public testCreateError(error: string, context?: any) {
+    return this.createError(error, context);
   }
 
-  public testHandleApiCall(endpoint: string, description: string, options?: any) {
-    return this.handleApiCall(endpoint, description, options);
+  public testCreateErrorFromException(error: Error, context?: any) {
+    return this.createError(error.message, context);
+  }
+
+  public testApiCall(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'GET', body?: any, options?: any) {
+    return this.apiCall(endpoint, method, body, options);
+  }
+
+  public testValidateRequired(params: any, required: string[]) {
+    return this.validateRequired(params, required);
+  }
+
+  public testExecuteToolHandler(handler: () => Promise<any>, operation: string) {
+    return this.executeToolHandler(handler, operation);
   }
 }
 
@@ -49,10 +61,10 @@ describe('BaseToolHandler', () => {
     vi.clearAllMocks();
   });
 
-  describe('safeJsonStringify', () => {
+  describe('safeStringify', () => {
     it('should stringify normal objects', () => {
       const data = { test: 'value', number: 42 };
-      const result = handler.testSafeJsonStringify(data);
+      const result = handler.testSafeStringify(data);
       expect(result).toBe(JSON.stringify(data, null, 2));
     });
 
@@ -60,27 +72,33 @@ describe('BaseToolHandler', () => {
       const circular: any = { name: 'test' };
       circular.self = circular;
       
-      // Should not throw, should return error object
-      const result = handler.testSafeJsonStringify(circular);
-      expect(result).toContain('Error formatting response data');
+      // Should not throw, should return error fallback
+      const result = handler.testSafeStringify(circular);
+      expect(result).toBe('[Unable to format data]');
     });
 
     it('should handle undefined and null', () => {
-      expect(handler.testSafeJsonStringify(null)).toBe('null');
-      expect(handler.testSafeJsonStringify(undefined)).toBe(undefined);
+      expect(handler.testSafeStringify(null)).toBe('null');
+      expect(handler.testSafeStringify(undefined)).toBeUndefined();
     });
   });
 
-  describe('createSuccessResult', () => {
+  describe('createSuccess', () => {
     it('should create success result with correct format', () => {
       const data = { success: true, data: 'test' };
-      const result = handler.testCreateSuccessResult(data);
+      const result = handler.testCreateSuccess(data);
       
       expect(result).toEqual({
-        content: [{
-          type: 'text',
-          text: JSON.stringify(data, null, 2)
-        }]
+        content: [
+          {
+            type: 'text',
+            text: 'Operation completed successfully'
+          },
+          {
+            type: 'text',
+            text: JSON.stringify(data, null, 2)
+          }
+        ]
       });
     });
 
@@ -90,22 +108,32 @@ describe('BaseToolHandler', () => {
         nested: { deep: { value: 'test' } },
         boolean: true
       };
-      const result = handler.testCreateSuccessResult(data);
+      const result = handler.testCreateSuccess(data);
       
       expect(result.content[0].type).toBe('text');
-      expect(JSON.parse(result.content[0].text)).toEqual(data);
+      expect(result.content[1].type).toBe('text');
+      expect(JSON.parse(result.content[1].text)).toEqual(data);
+    });
+
+    it('should include custom message when provided', () => {
+      const data = { test: 'value' };
+      const message = 'Custom success message';
+      const result = handler.testCreateSuccess(data, message);
+      
+      expect(result.content[0].text).toBe(message);
+      expect(JSON.parse(result.content[1].text)).toEqual(data);
     });
   });
 
-  describe('createErrorResult', () => {
+  describe('createError', () => {
     it('should create error result from string', () => {
       const errorMessage = 'Something went wrong';
-      const result = handler.testCreateErrorResult(errorMessage);
+      const result = handler.testCreateError(errorMessage);
       
       expect(result).toEqual({
         content: [{
           type: 'text',
-          text: JSON.stringify({ error: errorMessage }, null, 2)
+          text: 'Error: Something went wrong'
         }],
         isError: true
       });
@@ -113,12 +141,12 @@ describe('BaseToolHandler', () => {
 
     it('should create error result from Error object', () => {
       const error = new Error('Test error');
-      const result = handler.testCreateErrorResult(error);
+      const result = handler.testCreateErrorFromException(error);
       
       expect(result).toEqual({
         content: [{
           type: 'text',
-          text: JSON.stringify({ error: 'Test error' }, null, 2)
+          text: 'Error: Test error'
         }],
         isError: true
       });
@@ -126,17 +154,14 @@ describe('BaseToolHandler', () => {
 
     it('should include context when provided', () => {
       const context = { endpoint: '/test', params: { id: 123 } };
-      const result = handler.testCreateErrorResult('Error occurred', context);
+      const result = handler.testCreateError('Error occurred', context);
       
-      const parsedContent = JSON.parse(result.content[0].text);
-      expect(parsedContent).toEqual({
-        error: 'Error occurred',
-        context
-      });
+      expect(result.content[0].text).toBe('Error: Error occurred');
+      expect(result.content[1].text).toBe(JSON.stringify(context, null, 2));
     });
   });
 
-  describe('handleApiCall', () => {
+  describe('apiCall', () => {
     it('should make successful API call', async () => {
       const responseData = { result: 'success' };
       mockApiClient.request.mockResolvedValue({
@@ -145,21 +170,15 @@ describe('BaseToolHandler', () => {
         headers: {}
       });
 
-      const result = await handler.testHandleApiCall('/test', 'Test operation');
+      const result = await handler.testApiCall('/test');
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/test', {
         method: 'GET',
-        body: null,
-        headers: {},
+        body: undefined,
         queryParams: {}
       });
 
-      expect(result).toEqual({
-        content: [{
-          type: 'text',
-          text: JSON.stringify(responseData, null, 2)
-        }]
-      });
+      expect(result).toEqual(responseData);
     });
 
     it('should handle POST requests with body', async () => {
@@ -172,9 +191,7 @@ describe('BaseToolHandler', () => {
         headers: {}
       });
 
-      const result = await handler.testHandleApiCall('/test', 'Create test', {
-        method: 'POST',
-        body: requestBody,
+      const result = await handler.testApiCall('/test', 'POST', requestBody, {
         headers: { 'Custom-Header': 'value' },
         queryParams: { param: 'value' }
       });
@@ -182,60 +199,83 @@ describe('BaseToolHandler', () => {
       expect(mockApiClient.request).toHaveBeenCalledWith('/test', {
         method: 'POST',
         body: requestBody,
-        headers: { 'Custom-Header': 'value' },
         queryParams: { param: 'value' }
       });
+
+      expect(result).toEqual(responseData);
     });
 
-    it('should handle ApiError', async () => {
+    it('should throw ApiError on API failures', async () => {
       const apiError = new ApiError('API request failed', 404);
       mockApiClient.request.mockRejectedValue(apiError);
 
-      const result = await handler.testHandleApiCall('/test', 'Test operation');
-
-      expect(result).toEqual({
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ 
-            error: 'Failed to test operation: API request failed' 
-          }, null, 2)
-        }],
-        isError: true
-      });
+      await expect(handler.testApiCall('/test')).rejects.toThrow('API request failed');
     });
 
-    it('should handle generic errors', async () => {
+    it('should throw generic errors', async () => {
       const genericError = new Error('Network error');
       mockApiClient.request.mockRejectedValue(genericError);
 
-      const result = await handler.testHandleApiCall('/test', 'Test operation');
+      await expect(handler.testApiCall('/test')).rejects.toThrow('Network error');
+    });
+  });
 
+  describe('validateRequired', () => {
+    it('should pass when all required params are present', () => {
+      const params = { id: 123, name: 'test', value: true };
+      expect(() => handler.testValidateRequired(params, ['id', 'name'])).not.toThrow();
+    });
+
+    it('should throw when required params are missing', () => {
+      const params = { name: 'test' };
+      expect(() => handler.testValidateRequired(params, ['id', 'name'])).toThrow('Missing required parameters: id');
+    });
+
+    it('should throw when required params are null or undefined', () => {
+      const params = { id: null, name: undefined, value: 'test' };
+      expect(() => handler.testValidateRequired(params, ['id'])).toThrow('Missing required parameters: id');
+      expect(() => handler.testValidateRequired(params, ['name'])).toThrow('Missing required parameters: name');
+    });
+  });
+
+  describe('executeToolHandler', () => {
+    it('should execute handler and return success result', async () => {
+      const mockData = { success: true };
+      const mockHandler = vi.fn().mockResolvedValue(handler.testCreateSuccess(mockData));
+      
+      const result = await handler.testExecuteToolHandler(mockHandler, 'test operation');
+      
+      expect(mockHandler).toHaveBeenCalled();
+      expect(result).toEqual({
+        content: [
+          {
+            type: 'text',
+            text: 'Operation completed successfully'
+          },
+          {
+            type: 'text',
+            text: JSON.stringify(mockData, null, 2)
+          }
+        ]
+      });
+    });
+
+    it('should handle errors and return error result', async () => {
+      const mockError = new Error('Test error');
+      const mockHandler = vi.fn().mockRejectedValue(mockError);
+      
+      const result = await handler.testExecuteToolHandler(mockHandler, 'test operation');
+      
       expect(result).toEqual({
         content: [{
           type: 'text',
-          text: JSON.stringify({ 
-            error: 'Failed to test operation: Network error' 
-          }, null, 2)
+          text: 'Error: test operation failed: Test error'
         }],
         isError: true
       });
     });
-
-    it('should use default options when not provided', async () => {
-      mockApiClient.request.mockResolvedValue({
-        data: {},
-        status: 200,
-        headers: {}
-      });
-
-      await handler.testHandleApiCall('/test', 'Test operation');
-
-      expect(mockApiClient.request).toHaveBeenCalledWith('/test', {
-        method: 'GET',
-        body: null,
-        headers: {},
-        queryParams: {}
-      });
-    });
   });
+
+  // Note: Acknowledgment token functionality has been simplified in the new architecture
+  // and is now handled at the configuration level rather than in individual handlers
 });

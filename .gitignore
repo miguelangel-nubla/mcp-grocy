@@ -10,9 +10,10 @@ src/version.ts
 # Docker test builds
 mcp-grocy:test
 
-# Local environment variables
+# Local environment variables and configuration
 .env
 *.local
+mcp-grocy.yaml
 
 # IDE-specific files
 .vscode/

@@ -34,148 +34,25 @@ Enable HTTP/SSE transport for web-based access:
 
 ## 🛠️ Tool Configuration
 
-### Tool Toggle System
+Tools are configured using the YAML configuration file `mcp-grocy.yaml`. 
 
-Enable/disable specific tools using the `TOOL__` prefix pattern:
+Copy `mcp-grocy.yaml.example` to `mcp-grocy.yaml` and customize the `tools` section to enable/disable specific functionality.
 
-```bash
-# Stock management
-TOOL__get_all_stock=true
-TOOL__purchase_product=true
-TOOL__consume_product=false
+All available tools and their configuration options are documented in `mcp-grocy.yaml.example`.
 
-# Shopping lists  
-TOOL__get_shopping_list=true
-TOOL__add_shopping_list_item=true
+### Acknowledgment Tokens
 
-# Meal planning
-TOOL__get_meal_plan=true
-TOOL__add_recipe_to_meal_plan=true
-```
+All tools support acknowledgment tokens - unique confirmation words that provide end-to-end verification that actions were actually executed rather than hallucinated by the LLM.
 
-### Available Tool Categories
+When an acknowledgment token is configured for a tool, the server will return that exact token in the response only if the operation truly succeeded. The key principle is that acknowledgment tokens should be **completely unknown to the LLM beforehand** - using random, unrelated word combinations that the LLM would be extremely unlikely to guess or generate on its own.
 
-#### 📦 Stock Management Tools
-```bash
-TOOL__get_all_stock=true                     # Get all stock entries
-TOOL__get_stock_volatile=true                # Get due/expired products
-TOOL__get_stock_by_location=true             # Stock by specific location
-TOOL__inventory_product=true                 # Set stock amounts
-TOOL__purchase_product=true                  # Record purchases
-TOOL__consume_product=true                   # Record consumption
-TOOL__transfer_product=true                  # Move stock between locations
-TOOL__open_product=true                      # Mark products as opened
-```
+If the LLM returns your specific acknowledgment token (like "PURPLE_TELESCOPE_SINGING" or "CRYSTAL_VOLCANO_WHISPERING"), it's strong evidence the action was genuinely performed rather than hallucinated.
 
-#### 🛒 Shopping & Planning Tools
-```bash
-TOOL__get_shopping_list=true                 # Get shopping lists
-TOOL__add_shopping_list_item=true            # Add to shopping list
-TOOL__remove_shopping_list_item=true         # Remove from shopping list
-TOOL__get_shopping_locations=true            # Get store locations
-```
+Example configuration and usage patterns are shown in `mcp-grocy.yaml.example`.
 
-#### 🍽️ Recipe & Meal Planning Tools
-```bash
-TOOL__get_recipes=true                       # Get all recipes
-TOOL__get_recipe_by_id=true                  # Get specific recipe
-TOOL__create_recipe=true                     # Create new recipes
-TOOL__get_recipe_fulfillment=true            # Check recipe availability
-TOOL__consume_recipe=true                    # Cook a recipe
-TOOL__get_meal_plan=true                     # Get meal plans
-TOOL__add_recipe_to_meal_plan=true           # Schedule meals
-TOOL__delete_recipe_from_meal_plan=true      # Remove from meal plan
-TOOL__cooked_something=true                  # Complete cooking workflow
-```
+## 📋 Configuration Examples
 
-#### 🏠 Household Management Tools
-```bash
-TOOL__track_chore_execution=true             # Record chore completion
-TOOL__complete_task=true                     # Mark tasks as done
-TOOL__charge_battery=true                    # Record battery charging
-TOOL__get_chores=true                        # Get all chores
-TOOL__get_tasks=true                         # Get all tasks
-TOOL__get_batteries=true                     # Get battery info
-```
-
-#### 🔧 System & Utility Tools
-```bash
-TOOL__get_products=true                      # Get product information
-TOOL__lookup_product=true                    # Fuzzy product search
-TOOL__get_locations=true                     # Get storage locations
-TOOL__get_quantity_units=true                # Get quantity units
-TOOL__get_users=true                         # Get user information
-TOOL__call_grocy_api=true                    # Make custom API calls
-TOOL__test_request=true                      # Test API endpoints
-```
-
-### Tool Sub-Configuration
-
-Some tools have additional configuration options:
-
-```bash
-# cooked_something tool options
-TOOL__cooked_something__allow_meal_plan_entry_already_done=false
-TOOL__cooked_something__allow_no_meal_plan=false
-TOOL__cooked_something__print_labels=true
-```
-
-## 📋 Configuration Presets
-
-### Read-Only Mode
-Safe for information gathering only:
-```bash
-# Enable only GET operations
-TOOL__get_all_stock=true
-TOOL__get_recipes=true
-TOOL__get_meal_plan=true
-TOOL__get_shopping_list=true
-TOOL__get_products=true
-TOOL__lookup_product=true
-# Disable all modification tools
-TOOL__purchase_product=false
-TOOL__consume_product=false
-TOOL__add_shopping_list_item=false
-```
-
-### Meal Planning Focus
-For meal planning and recipe management:
-```bash
-# Recipe and meal planning tools
-TOOL__get_recipes=true
-TOOL__get_recipe_by_id=true
-TOOL__get_recipe_fulfillment=true
-TOOL__get_meal_plan=true
-TOOL__add_recipe_to_meal_plan=true
-TOOL__delete_recipe_from_meal_plan=true
-TOOL__cooked_something=true
-
-# Supporting tools
-TOOL__get_products=true
-TOOL__lookup_product=true
-TOOL__get_all_stock=true
-TOOL__add_missing_products_to_shopping_list=true
-```
-
-### Stock Management Focus
-For inventory and shopping management:
-```bash
-# Stock operations
-TOOL__get_all_stock=true
-TOOL__get_stock_volatile=true
-TOOL__purchase_product=true
-TOOL__consume_product=true
-TOOL__inventory_product=true
-
-# Shopping management  
-TOOL__get_shopping_list=true
-TOOL__add_shopping_list_item=true
-TOOL__remove_shopping_list_item=true
-
-# Product management
-TOOL__get_products=true
-TOOL__lookup_product=true
-```
+Configuration examples for common use cases are provided in `mcp-grocy.yaml.example`.
 
 ## 🔒 Security Considerations
 
@@ -207,12 +84,6 @@ REST_RESPONSE_SIZE_LIMIT=50000
 # Enable HTTP server for testing
 ENABLE_HTTP_SERVER=true
 HTTP_SERVER_PORT=8080
-
-# Enable commonly used tools
-TOOL__get_all_stock=true
-TOOL__get_recipes=true
-TOOL__get_meal_plan=true
-TOOL__lookup_product=true
 ```
 
 ### Production Configuration
@@ -222,16 +93,9 @@ GROCY_BASE_URL=https://grocy.yourdomain.com
 GROCY_APIKEY_VALUE=secure_production_key
 GROCY_ENABLE_SSL_VERIFY=true
 REST_RESPONSE_SIZE_LIMIT=20000
-
-# Selective tool enablement for security
-TOOL__get_all_stock=true
-TOOL__get_recipes=true
-TOOL__add_recipe_to_meal_plan=true
-TOOL__get_shopping_list=true
-# Explicitly disable sensitive operations
-TOOL__call_grocy_api=false
-TOOL__test_request=false
 ```
+
+Tool configuration should be done via `mcp-grocy.yaml` file.
 
 ## 🔄 Configuration Management
 
@@ -254,10 +118,10 @@ TOOL__test_request=false
 
 ### Common Issues
 
-**Tool toggle not working**
-- Check exact spelling of tool names
-- Ensure `TOOL__` prefix is correct
-- Verify boolean values (`true`/`false`)
+**Tool configuration not working**
+- Check YAML syntax and indentation
+- Verify tool names match current naming convention
+- Ensure `mcp-grocy.yaml` file is in the correct location
 
 **SSL/TLS connection errors**
 - Set `GROCY_ENABLE_SSL_VERIFY=false` for self-signed certificates

@@ -1,5 +1,5 @@
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
-import { VERSION, SERVER_NAME } from '../version.js';
+import { SERVER_NAME } from '../version.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

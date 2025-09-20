@@ -1,69 +1,173 @@
+/**
+ * Simplified base tool handler
+ */
+
 import { ToolResult } from './types.js';
-import apiClient, { ApiError } from '../api/client.js';
+import apiClient from '../api/client.js';
+import { ErrorHandler, ValidationError } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 
 export abstract class BaseToolHandler {
-  protected safeJsonStringify(data: any): string {
-    try {
-      return JSON.stringify(data, null, 2);
-    } catch (error) {
-      console.error('Error stringifying JSON:', error);
-      return JSON.stringify({ error: 'Error formatting response data' }, null, 2);
-    }
-  }
-
-  protected createSuccessResult(data: any): ToolResult {
+  /**
+   * Create a standardized success result
+   */
+  protected createSuccess(data: any, message?: string): ToolResult {
     return {
-      content: [{
-        type: 'text',
-        text: this.safeJsonStringify(data)
-      }]
+      content: [
+        {
+          type: 'text' as const,
+          text: message || 'Operation completed successfully'
+        },
+        {
+          type: 'text' as const,
+          text: JSON.stringify(data, null, 2)
+        }
+      ]
     };
   }
 
-  protected createErrorResult(error: string | Error, context?: any): ToolResult {
-    const errorMessage = error instanceof Error ? error.message : error;
-    const result: any = { error: errorMessage };
-    
-    if (context) {
-      result.context = context;
-    }
-
+  /**
+   * Create a standardized error result
+   */
+  protected createError(message: string, details?: any): ToolResult {
     return {
-      content: [{
-        type: 'text',
-        text: this.safeJsonStringify(result)
-      }],
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${message}`
+        },
+        ...(details ? [{
+          type: 'text' as const,
+          text: JSON.stringify(details, null, 2)
+        }] : [])
+      ],
       isError: true
     };
   }
 
-  protected async handleApiCall(
-    endpoint: string, 
-    description: string, 
-    options: any = {}
+  /**
+   * Validate required parameters
+   */
+  protected validateRequired(params: Record<string, any>, required: string[]): void {
+    const missing = required.filter(field => {
+      const value = params[field];
+      return value === undefined || value === null || value === '';
+    });
+
+    if (missing.length > 0) {
+      throw new ValidationError(
+        `Missing required parameters: ${missing.join(', ')}`,
+        'parameter validation'
+      );
+    }
+  }
+
+  /**
+   * Safely make API calls with error handling
+   */
+  protected async apiCall<T = any>(
+    endpoint: string,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'GET',
+    data?: any,
+    options?: { queryParams?: Record<string, string> }
+  ): Promise<T> {
+    return ErrorHandler.handleAsync(async () => {
+      const response = await apiClient.request<T>(endpoint, {
+        method,
+        body: data,
+        queryParams: options?.queryParams || {}
+      });
+      
+      return response.data;
+    }, `API ${method} ${endpoint}`);
+  }
+
+  /**
+   * Handle tool execution with standardized error handling
+   */
+  protected async executeToolHandler(
+    handler: () => Promise<ToolResult>,
+    operation: string
   ): Promise<ToolResult> {
     try {
-      const method = options.method || 'GET';
-      const body = options.body || null;
-      const headers = options.headers || {};
-      const queryParams = options.queryParams || {};
-
-      const response = await apiClient.request(endpoint, {
-        method,
-        body,
-        headers,
-        queryParams
-      });
-
-      return this.createSuccessResult(response.data);
-    } catch (error: any) {
-      console.error(`Error in ${description}:`, error);
+      return await handler();
+    } catch (error) {
+      ErrorHandler.logError(error, operation);
       
-      if (error instanceof ApiError) {
-        return this.createErrorResult(`Failed to ${description.toLowerCase()}: ${error.message}`);
+      if (error instanceof ValidationError) {
+        return this.createError(error.message);
       }
       
-      return this.createErrorResult(`Failed to ${description.toLowerCase()}: ${error.message || error}`);
+      const message = error instanceof Error ? error.message : 'Internal error';
+      return this.createError(`${operation} failed: ${message}`);
     }
+  }
+
+  /**
+   * Safe JSON formatting
+   */
+  protected safeStringify(data: any): string {
+    try {
+      return JSON.stringify(data, null, 2);
+    } catch (error) {
+      logger.warn('Failed to stringify data', 'TOOLS', { error });
+      return '[Unable to format data]';
+    }
+  }
+
+  /**
+   * Filter object fields based on allowlist
+   */
+  protected filterFields<T extends Record<string, any>>(
+    objects: T[],
+    fields: string[]
+  ): Partial<T>[] {
+    return objects.map(obj => {
+      const filtered: Partial<T> = {};
+      fields.forEach(field => {
+        if (field in obj) {
+          filtered[field as keyof T] = obj[field];
+        }
+      });
+      return filtered;
+    });
+  }
+
+  /**
+   * Parse and validate array parameter
+   */
+  protected parseArrayParam(value: any, paramName: string): string[] {
+    if (!value) {
+      throw new ValidationError(`${paramName} is required`);
+    }
+    
+    if (!Array.isArray(value)) {
+      throw new ValidationError(`${paramName} must be an array`);
+    }
+    
+    if (value.length === 0) {
+      throw new ValidationError(`${paramName} cannot be empty`);
+    }
+    
+    return value.map(v => String(v));
+  }
+
+  /**
+   * Parse and validate numeric parameter
+   */
+  protected parseNumberParam(value: any, paramName: string, required = true): number | undefined {
+    if (value === undefined || value === null) {
+      if (required) {
+        throw new ValidationError(`${paramName} is required`);
+      }
+      return undefined;
+    }
+    
+    const num = Number(value);
+    if (isNaN(num)) {
+      throw new ValidationError(`${paramName} must be a valid number`);
+    }
+    
+    return num;
   }
 }
