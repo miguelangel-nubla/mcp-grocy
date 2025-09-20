@@ -81,6 +81,28 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     });
   };
 
+  // ==================== LABEL PRINTING ====================
+
+  public printBatteryLabel: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { batteryId } = args || {};
+      this.validateRequired({ batteryId }, ['batteryId']);
+
+      const result = await this.apiCall(`/batteries/${batteryId}/printlabel`);
+      return this.createSuccess(result, 'Battery label printed successfully');
+    });
+  };
+
+  public printChoreLabel: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { choreId } = args || {};
+      this.validateRequired({ choreId }, ['choreId']);
+
+      const result = await this.apiCall(`/chores/${choreId}/printlabel`);
+      return this.createSuccess(result, 'Chore label printed successfully');
+    });
+  };
+
   // ==================== ACTION UTILITIES ====================
 
   public undoAction: ToolHandler = async (args: any): Promise<ToolResult> => {

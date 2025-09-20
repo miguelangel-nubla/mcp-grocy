@@ -420,6 +420,28 @@ describe('InventoryToolHandlers', () => {
     });
   });
 
+  describe('printProductLabel', () => {
+    it('should require productId parameter', async () => {
+      const result = await handlers.printProductLabel({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should print product label successfully', async () => {
+      const mockPrintResponse = { data: { success: true }, status: 200, headers: {} };
+      mockApiClient.request.mockResolvedValue(mockPrintResponse);
+
+      const result = await handlers.printProductLabel({ productId: 1 });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/products/1/printlabel', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+    });
+  });
+
   describe('printStockEntryLabel', () => {
     it('should require stockId and productId parameters', async () => {
       const result1 = await handlers.printStockEntryLabel({});
@@ -462,6 +484,286 @@ describe('InventoryToolHandlers', () => {
         queryParams: {}
       });
       expect(result.isError).toBeFalsy();
+    });
+  });
+
+  // ==================== GRANULAR STOCK ENTRY OPERATIONS TESTS ====================
+
+  describe('consumeStockEntry', () => {
+    it('should require stockId, productId, and amount parameters', async () => {
+      const result1 = await handlers.consumeStockEntry({});
+      expect(result1.isError).toBe(true);
+      expect(result1.content[0].text).toContain('Missing required parameters');
+
+      const result2 = await handlers.consumeStockEntry({ stockId: 1 });
+      expect(result2.isError).toBe(true);
+      expect(result2.content[0].text).toContain('Missing required parameters');
+
+      const result3 = await handlers.consumeStockEntry({ stockId: 1, productId: 1 });
+      expect(result3.isError).toBe(true);
+      expect(result3.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should validate stock entry belongs to product', async () => {
+      const mockStockEntry = { product_id: 2, stock_id: 'abc123', location_id: 1 };
+      mockApiClient.request.mockResolvedValue({ data: mockStockEntry, status: 200, headers: {} });
+
+      const result = await handlers.consumeStockEntry({ stockId: 1, productId: 1, amount: 2 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Product ID mismatch');
+    });
+
+    it('should consume stock entry when validation passes', async () => {
+      const mockStockEntry = { product_id: 1, stock_id: 'abc123', location_id: 1 };
+      const mockConsumeResponse = { data: { success: true }, status: 200, headers: {} };
+      
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: mockStockEntry, status: 200, headers: {} })
+        .mockResolvedValueOnce(mockConsumeResponse);
+
+      const result = await handlers.consumeStockEntry({ 
+        stockId: 1, 
+        productId: 1, 
+        amount: 2,
+        spoiled: true,
+        note: 'Test note'
+      });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/1', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/products/1/consume', {
+        method: 'POST',
+        body: {
+          amount: 2,
+          spoiled: true,
+          stock_entry_id: 'abc123',
+          location_id: 1,
+          note: 'Test note'
+        },
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+    });
+  });
+
+  describe('transferStockEntry', () => {
+    it('should require stockId, productId, amount, and locationIdTo parameters', async () => {
+      const result1 = await handlers.transferStockEntry({});
+      expect(result1.isError).toBe(true);
+      expect(result1.content[0].text).toContain('Missing required parameters');
+
+      const result2 = await handlers.transferStockEntry({ stockId: 1, productId: 1 });
+      expect(result2.isError).toBe(true);
+      expect(result2.content[0].text).toContain('Missing required parameters');
+
+      const result3 = await handlers.transferStockEntry({ stockId: 1, productId: 1, amount: 2 });
+      expect(result3.isError).toBe(true);
+      expect(result3.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should validate stock entry belongs to product', async () => {
+      const mockStockEntry = { product_id: 2, stock_id: 'abc123', location_id: 1 };
+      mockApiClient.request.mockResolvedValue({ data: mockStockEntry, status: 200, headers: {} });
+
+      const result = await handlers.transferStockEntry({ 
+        stockId: 1, 
+        productId: 1, 
+        amount: 2, 
+        locationIdTo: 3 
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Product ID mismatch');
+    });
+
+    it('should transfer stock entry when validation passes', async () => {
+      const mockStockEntry = { product_id: 1, stock_id: 'abc123', location_id: 1 };
+      const mockTransferResponse = { data: { success: true }, status: 200, headers: {} };
+      
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: mockStockEntry, status: 200, headers: {} })
+        .mockResolvedValueOnce(mockTransferResponse);
+
+      const result = await handlers.transferStockEntry({ 
+        stockId: 1, 
+        productId: 1, 
+        amount: 2,
+        locationIdTo: 3,
+        note: 'Transfer note'
+      });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/1', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/products/1/transfer', {
+        method: 'POST',
+        body: {
+          amount: 2,
+          location_id_from: 1,
+          location_id_to: 3,
+          transaction_type: 'transfer',
+          stock_entry_id: 'abc123',
+          note: 'Transfer note'
+        },
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+    });
+  });
+
+  describe('openStockEntry', () => {
+    it('should require stockId, productId, and amount parameters', async () => {
+      const result1 = await handlers.openStockEntry({});
+      expect(result1.isError).toBe(true);
+      expect(result1.content[0].text).toContain('Missing required parameters');
+
+      const result2 = await handlers.openStockEntry({ stockId: 1 });
+      expect(result2.isError).toBe(true);
+      expect(result2.content[0].text).toContain('Missing required parameters');
+
+      const result3 = await handlers.openStockEntry({ stockId: 1, productId: 1 });
+      expect(result3.isError).toBe(true);
+      expect(result3.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should validate stock entry belongs to product', async () => {
+      const mockStockEntry = { product_id: 2, stock_id: 'abc123', location_id: 1 };
+      mockApiClient.request.mockResolvedValue({ data: mockStockEntry, status: 200, headers: {} });
+
+      const result = await handlers.openStockEntry({ stockId: 1, productId: 1, amount: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Product ID mismatch');
+    });
+
+    it('should open stock entry when validation passes', async () => {
+      const mockStockEntry = { product_id: 1, stock_id: 'abc123', location_id: 1 };
+      const mockOpenResponse = { data: { success: true }, status: 200, headers: {} };
+      
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: mockStockEntry, status: 200, headers: {} })
+        .mockResolvedValueOnce(mockOpenResponse);
+
+      const result = await handlers.openStockEntry({ 
+        stockId: 1, 
+        productId: 1, 
+        amount: 1,
+        note: 'Opening note'
+      });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/1', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/products/1/open', {
+        method: 'POST',
+        body: {
+          amount: 1,
+          stock_entry_id: 'abc123',
+          location_id: 1,
+          note: 'Opening note'
+        },
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+    });
+  });
+
+  describe('splitStockEntry', () => {
+    it('should split single amount correctly', async () => {
+      const mockOriginalEntry = {
+        id: 123,
+        note: 'Original note',
+        best_before_date: '2024-12-31',
+        purchased_date: '2024-01-01',
+        location_id: 1
+      };
+      const mockUpdateResponse = { data: { success: true }, status: 200, headers: {} };
+      
+      mockApiClient.request.mockResolvedValue(mockUpdateResponse);
+
+      const getUnitForm = (amount: number) => amount === 1 ? 'piece' : 'pieces';
+      const result = await handlers.splitStockEntry(mockOriginalEntry, [5], getUnitForm);
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/123', {
+        method: 'PUT',
+        body: {
+          amount: 5,
+          open: false,
+          note: 'Original note - 123 - 1',
+          best_before_date: '2024-12-31',
+          purchased_date: '2024-01-01',
+          location_id: 1
+        },
+        queryParams: {}
+      });
+
+      expect(result).toEqual([{
+        stockId: 123,
+        amount: 5,
+        type: 'updated',
+        unit: 'pieces'
+      }]);
+    });
+
+    it('should split multiple amounts correctly', async () => {
+      const mockOriginalEntry = {
+        id: 123,
+        product_id: 456,
+        note: 'Original note',
+        best_before_date: '2024-12-31',
+        purchased_date: '2024-01-01',
+        location_id: 1
+      };
+      const mockUpdateResponse = { data: { success: true }, status: 200, headers: {} };
+      const mockCreateResponse = [{ stock_id: 'new123', id: 'new123' }];
+      const mockStockResponse = [{
+        id: 789,
+        product_id: 456,
+        stock_id: 'new123'
+      }];
+      
+      mockApiClient.request
+        .mockResolvedValueOnce(mockUpdateResponse) // Update first entry
+        .mockResolvedValueOnce({ data: mockCreateResponse, status: 200, headers: {} }) // Create second entry
+        .mockResolvedValueOnce({ data: mockStockResponse, status: 200, headers: {} }); // Get stock entries
+
+      const getUnitForm = (amount: number) => amount === 1 ? 'piece' : 'pieces';
+      const result = await handlers.splitStockEntry(mockOriginalEntry, [3, 2], getUnitForm);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        stockId: 123,
+        amount: 3,
+        type: 'updated',
+        unit: 'pieces'
+      });
+      expect(result[1]).toEqual({
+        stockId: 789,
+        amount: 2,
+        type: 'created',
+        unit: 'pieces'
+      });
+    });
+
+    it('should handle invalid amounts', async () => {
+      const mockOriginalEntry = { id: 123 };
+      const getUnitForm = () => 'pieces';
+
+      // Test single amount validation (different error format)
+      await expect(handlers.splitStockEntry(mockOriginalEntry, [0], getUnitForm))
+        .rejects.toThrow('Invalid amount: 0');
+
+      // Test multiple amounts validation (different error format)
+      await expect(handlers.splitStockEntry(mockOriginalEntry, [1, -1], getUnitForm))
+        .rejects.toThrow('Invalid amount at index 1: -1');
     });
   });
 });

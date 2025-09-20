@@ -12,6 +12,7 @@ export const recipeModule: ToolModule = {
     recipes_management_get: handlers.getRecipes,
     recipes_management_get_by_id: handlers.getRecipeById,
     recipes_management_create: handlers.createRecipe,
+    recipes_management_print_label: handlers.printRecipeLabel,
     
     // Recipe Fulfillment
     recipes_fulfillment_get: handlers.getRecipeFulfillment,
@@ -25,7 +26,7 @@ export const recipeModule: ToolModule = {
     
     // Recipe Cooking
     recipes_cooking_consume: handlers.consumeRecipe,
-    recipes_cooking_cooked_something: handlers.cookedSomething,
+    recipes_cooking_complete: handlers.cookedSomething,
     
     // Shopping Integration
     recipes_shopping_add_all_products: handlers.addAllProductsToShopping,

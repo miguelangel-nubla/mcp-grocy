@@ -58,5 +58,14 @@ export const shoppingToolDefinitions = [
       properties: {},
       required: []
     }
+  },
+  {
+    name: 'shopping_list_print_thermal',
+    description: '[SHOPPING/PRINTING] Print the shopping list with a thermal printer. This creates a physical shopping list for store visits.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+      required: []
+    }
   }
 ];

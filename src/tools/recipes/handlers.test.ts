@@ -20,7 +20,7 @@ vi.mock('../../config/index.js', () => ({
   config: {
     parseToolConfiguration: vi.fn(() => ({
       toolSubConfigs: new Map([
-        ['cooked_something', new Map([
+        ['complete', new Map([
           ['allow_meal_plan_entry_already_done', false],
           ['print_labels', true],
           ['allow_no_meal_plan', false]
@@ -557,6 +557,28 @@ describe('RecipeToolHandlers', () => {
       
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Missing required parameters: recipeId');
+    });
+  });
+
+  describe('printRecipeLabel', () => {
+    it('should require recipeId parameter', async () => {
+      const result = await handlers.printRecipeLabel({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should print recipe label successfully', async () => {
+      const mockPrintResponse = { data: { success: true }, status: 200, headers: {} };
+      mockApiClient.request.mockResolvedValue(mockPrintResponse);
+
+      const result = await handlers.printRecipeLabel({ recipeId: 1 });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/recipes/1/printlabel', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
     });
   });
 });

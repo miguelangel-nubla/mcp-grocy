@@ -467,4 +467,48 @@ describe('HouseholdToolHandlers', () => {
       expect(result.content[0].text).toContain('Cannot destructure property');
     });
   });
+
+  describe('printBatteryLabel', () => {
+    it('should require batteryId parameter', async () => {
+      const result = await handlers.printBatteryLabel({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should print battery label successfully', async () => {
+      const mockPrintResponse = { data: { success: true }, status: 200, headers: {} };
+      mockApiClient.request.mockResolvedValue(mockPrintResponse);
+
+      const result = await handlers.printBatteryLabel({ batteryId: 1 });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/batteries/1/printlabel', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+    });
+  });
+
+  describe('printChoreLabel', () => {
+    it('should require choreId parameter', async () => {
+      const result = await handlers.printChoreLabel({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters');
+    });
+
+    it('should print chore label successfully', async () => {
+      const mockPrintResponse = { data: { success: true }, status: 200, headers: {} };
+      mockApiClient.request.mockResolvedValue(mockPrintResponse);
+
+      const result = await handlers.printChoreLabel({ choreId: 1 });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/chores/1/printlabel', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+    });
+  });
 });

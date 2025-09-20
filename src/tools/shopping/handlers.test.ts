@@ -200,4 +200,21 @@ describe('ShoppingToolHandlers', () => {
       expect(result.isError).toBe(true);
     });
   });
+
+  describe('printShoppingListThermal', () => {
+    it('should print shopping list thermally successfully', async () => {
+      const mockPrintResponse = { data: { success: true }, status: 200, headers: {} };
+      mockApiClient.request.mockResolvedValue(mockPrintResponse);
+
+      const result = await handlers.printShoppingListThermal({});
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/print/shoppinglist/thermal', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {}
+      });
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain('Shopping list sent to thermal printer successfully');
+    });
+  });
 });

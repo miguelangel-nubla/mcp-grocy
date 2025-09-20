@@ -261,7 +261,21 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
     }
   },
   {
-    name: 'inventory_stock_print_label',
+    name: 'inventory_products_print_label',
+    description: '[INVENTORY/PRODUCTS] Print a Grocycode label for a product. Use inventory_products_get to find valid productId values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productId: {
+          type: 'number',
+          description: 'ID of the product to print label for. Use inventory_products_get tool to find the correct product ID.'
+        }
+      },
+      required: ['productId']
+    }
+  },
+  {
+    name: 'inventory_stock_entry_print_label',
     description: '[INVENTORY/STOCK] Print a label for a specific stock entry. Use inventory_stock_get_by_product to find valid stockId values.',
     inputSchema: {
       type: 'object',
@@ -276,6 +290,95 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
         }
       },
       required: ['stockId', 'productId']
+    }
+  },
+
+  // ==================== GRANULAR STOCK ENTRY OPERATIONS ====================
+  {
+    name: 'inventory_stock_entry_consume',
+    description: '[INVENTORY/STOCK] Consume from a specific stock entry. Use inventory_stock_get_by_product to find specific stockId values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        stockId: {
+          type: 'number',
+          description: 'ID of the specific stock entry to consume from.'
+        },
+        productId: {
+          type: 'number',
+          description: 'ID of the product being consumed. This is required for verification - if you know the stockId, you must know the productId.'
+        },
+        amount: {
+          type: 'number',
+          description: 'Amount to consume in the product\'s stock unit (e.g., 1 piece, 0.5 kg, 250 ml). Ensure you know the product\'s stock unit before specifying amount.'
+        },
+        spoiled: {
+          type: 'boolean',
+          description: 'Whether the product is spoiled (default: false)',
+          default: false
+        },
+        note: {
+          type: 'string',
+          description: 'Optional note'
+        }
+      },
+      required: ['stockId', 'productId', 'amount']
+    }
+  },
+  {
+    name: 'inventory_stock_entry_transfer',
+    description: '[INVENTORY/STOCK] Transfer a specific stock entry to another location. Use inventory_stock_get_by_product to find specific stockId values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        stockId: {
+          type: 'number',
+          description: 'ID of the specific stock entry to transfer.'
+        },
+        productId: {
+          type: 'number',
+          description: 'ID of the product being transferred. This is required for verification - if you know the stockId, you must know the productId.'
+        },
+        amount: {
+          type: 'number',
+          description: 'Amount to transfer in the product\'s stock unit (e.g., 1 piece, 0.5 kg, 250 ml). Ensure you know the product\'s stock unit before specifying amount.'
+        },
+        locationIdTo: {
+          type: 'number', 
+          description: 'ID of the destination location.'
+        },
+        note: {
+          type: 'string',
+          description: 'Optional note for this transfer'
+        }
+      },
+      required: ['stockId', 'productId', 'amount', 'locationIdTo']
+    }
+  },
+  {
+    name: 'inventory_stock_entry_open',
+    description: '[INVENTORY/STOCK] Mark a specific stock entry as opened. Use inventory_stock_get_by_product to find specific stockId values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        stockId: {
+          type: 'number',
+          description: 'ID of the specific stock entry to mark as opened.'
+        },
+        productId: {
+          type: 'number',
+          description: 'ID of the product being opened. This is required for verification - if you know the stockId, you must know the productId.'
+        },
+        amount: {
+          type: 'number',
+          description: 'Amount to mark as opened in the product\'s stock unit (e.g., 1 piece, 0.5 kg, 200 ml). Ensure you know the product\'s stock unit before specifying amount.'
+        },
+        note: {
+          type: 'string',
+          description: 'Optional note'
+        }
+      },
+      required: ['stockId', 'productId', 'amount']
     }
   }
 ];

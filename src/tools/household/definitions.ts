@@ -97,6 +97,36 @@ export const householdToolDefinitions = [
       required: ['batteryId']
     }
   },
+  {
+    name: 'household_batteries_print_label',
+    description: '[HOUSEHOLD/BATTERIES] Print a Grocycode label for a battery. Use household_batteries_get to find valid batteryId values.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        batteryId: {
+          type: 'number',
+          description: 'ID of the battery to print label for. Use household_batteries_get tool to find the correct battery ID.'
+        }
+      },
+      required: ['batteryId']
+    }
+  },
+
+  // ==================== CHORE LABEL PRINTING ====================
+  {
+    name: 'household_chores_print_label',
+    description: '[HOUSEHOLD/CHORES] Print a Grocycode label for a chore. Use household_chores_get to find valid choreId values.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        choreId: {
+          type: 'number',
+          description: 'ID of the chore to print label for. Use household_chores_get tool to find the correct chore ID.'
+        }
+      },
+      required: ['choreId']
+    }
+  },
 
   // ==================== EQUIPMENT MANAGEMENT ====================
   {

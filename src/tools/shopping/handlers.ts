@@ -42,4 +42,11 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       return this.createSuccess(result, 'Shopping locations retrieved successfully');
     });
   };
+
+  public printShoppingListThermal: ToolHandler = async (): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const result = await this.apiCall('/print/shoppinglist/thermal');
+      return this.createSuccess(result, 'Shopping list sent to thermal printer successfully');
+    });
+  };
 }

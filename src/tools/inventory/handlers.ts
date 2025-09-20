@@ -301,6 +301,16 @@ export class InventoryToolHandlers extends BaseToolHandler {
     });
   };
 
+  public printProductLabel: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { productId } = args || {};
+      this.validateRequired({ productId }, ['productId']);
+
+      const result = await this.apiCall(`/stock/products/${productId}/printlabel`);
+      return this.createSuccess(result, 'Product label printed successfully');
+    });
+  };
+
   public printStockEntryLabel: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const { stockId, productId } = args || {};
@@ -317,6 +327,177 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const result = await this.apiCall(`/stock/entry/${stockId}/printlabel`);
       return this.createSuccess(result, 'Stock entry label printed successfully');
+    });
+  };
+
+  // ==================== GRANULAR STOCK ENTRY OPERATIONS ====================
+
+  public async splitStockEntry(
+    originalEntry: any,
+    stockAmounts: number[],
+    getUnitForm: (amount: number) => string
+  ): Promise<{ stockId: any; amount: number; type: string; unit: string }[]> {
+    const splitEntries: { stockId: any; amount: number; type: string; unit: string }[] = [];
+
+    if (stockAmounts.length === 1) {
+      const amount = stockAmounts[0];
+      if (typeof amount !== 'number' || amount <= 0) {
+        throw new Error(`Invalid amount: ${amount}`);
+      }
+      const note = `${originalEntry.note || ''} - ${originalEntry.id} - 1`;
+      await this.apiCall(`/stock/entry/${originalEntry.id}`, 'PUT', {
+        amount: amount,
+        open: false,
+        note: note,
+        best_before_date: originalEntry.best_before_date,
+        purchased_date: originalEntry.purchased_date,
+        location_id: originalEntry.location_id
+      });
+      splitEntries.push({
+        stockId: originalEntry.id,
+        amount: amount,
+        type: 'updated',
+        unit: getUnitForm(amount)
+      });
+    } else {
+      for (let i = 0; i < stockAmounts.length; i++) {
+        const amount = stockAmounts[i];
+        if (typeof amount !== 'number' || amount <= 0) {
+          throw new Error(`Invalid amount at index ${i}: ${amount}`);
+        }
+        const note = `${originalEntry.note || ''} - ${originalEntry.id} - ${i + 1}`;
+
+        if (i === 0) {
+          await this.apiCall(`/stock/entry/${originalEntry.id}`, 'PUT', {
+            amount: amount,
+            open: false,
+            note: note,
+            best_before_date: originalEntry.best_before_date,
+            purchased_date: originalEntry.purchased_date,
+            location_id: originalEntry.location_id
+          });
+          splitEntries.push({
+            stockId: originalEntry.id,
+            amount,
+            type: 'updated',
+            unit: getUnitForm(amount)
+          });
+        } else {
+          const createResponse = await this.apiCall(`/stock/products/${originalEntry.product_id}/add`, 'POST', {
+            amount,
+            best_before_date: originalEntry.best_before_date,
+            purchased_date: originalEntry.purchased_date,
+            transaction_type: 'purchase',
+            location_id: originalEntry.location_id,
+            note: note
+          });
+
+          const stockId = createResponse[0].stock_id || createResponse[0].id;
+          const stockResponse = await this.apiCall('/objects/stock');
+          const stockEntries = Array.isArray(stockResponse) ? stockResponse : [];
+
+          const actualStockEntry = stockEntries.find((entry: any) =>
+            entry.product_id === originalEntry.product_id &&
+            entry.stock_id === stockId
+          );
+
+          if (!actualStockEntry) {
+            throw new Error(`Could not find created stock entry with product_id ${originalEntry.product_id} and stock_id ${stockId}`);
+          }
+
+          splitEntries.push({
+            stockId: actualStockEntry.id,
+            amount,
+            type: 'created',
+            unit: getUnitForm(amount)
+          });
+        }
+      }
+    }
+
+    return splitEntries;
+  }
+
+  public consumeStockEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { stockId, productId, amount, spoiled = false, note } = args || {};
+      this.validateRequired({ stockId, productId, amount }, ['stockId', 'productId', 'amount']);
+
+      const stockEntryResponse = await this.apiCall(`/stock/entry/${stockId}`);
+      if (!stockEntryResponse || !stockEntryResponse.product_id) {
+        throw new Error(`Could not resolve product ID from stock entry ${stockId}`);
+      }
+
+      if (stockEntryResponse.product_id !== productId) {
+        throw new Error(`Product ID mismatch: stock entry ${stockId} belongs to product ${stockEntryResponse.product_id}, but ${productId} was provided`);
+      }
+
+      const body: any = {
+        amount,
+        spoiled,
+        stock_entry_id: stockEntryResponse.stock_id,
+        location_id: stockEntryResponse.location_id
+      };
+
+      if (note) body.note = note;
+
+      const result = await this.apiCall(`/stock/products/${stockEntryResponse.product_id}/consume`, 'POST', body);
+      return this.createSuccess(result, 'Stock entry consumed successfully');
+    });
+  };
+
+  public transferStockEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { stockId, productId, amount, locationIdTo, note } = args || {};
+      this.validateRequired({ stockId, productId, amount, locationIdTo }, ['stockId', 'productId', 'amount', 'locationIdTo']);
+
+      const stockEntryResponse = await this.apiCall(`/stock/entry/${stockId}`);
+      if (!stockEntryResponse || !stockEntryResponse.product_id) {
+        throw new Error(`Could not resolve product ID from stock entry ${stockId}`);
+      }
+
+      if (stockEntryResponse.product_id !== productId) {
+        throw new Error(`Product ID mismatch: stock entry ${stockId} belongs to product ${stockEntryResponse.product_id}, but ${productId} was provided`);
+      }
+
+      const body: any = {
+        amount,
+        location_id_from: stockEntryResponse.location_id,
+        location_id_to: locationIdTo,
+        transaction_type: 'transfer',
+        stock_entry_id: stockEntryResponse.stock_id
+      };
+
+      if (note) body.note = note;
+
+      const result = await this.apiCall(`/stock/products/${stockEntryResponse.product_id}/transfer`, 'POST', body);
+      return this.createSuccess(result, 'Stock entry transferred successfully');
+    });
+  };
+
+  public openStockEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { stockId, productId, amount, note } = args || {};
+      this.validateRequired({ stockId, productId, amount }, ['stockId', 'productId', 'amount']);
+
+      const stockEntryResponse = await this.apiCall(`/stock/entry/${stockId}`);
+      if (!stockEntryResponse || !stockEntryResponse.product_id) {
+        throw new Error(`Could not resolve product ID from stock entry ${stockId}`);
+      }
+
+      if (stockEntryResponse.product_id !== productId) {
+        throw new Error(`Product ID mismatch: stock entry ${stockId} belongs to product ${stockEntryResponse.product_id}, but ${productId} was provided`);
+      }
+
+      const body: any = {
+        amount,
+        stock_entry_id: stockEntryResponse.stock_id,
+        location_id: stockEntryResponse.location_id
+      };
+      if (note) body.note = note;
+
+      const result = await this.apiCall(`/stock/products/${stockEntryResponse.product_id}/open`, 'POST', body);
+      return this.createSuccess(result, 'Stock entry opened successfully');
     });
   };
 }

@@ -12,7 +12,7 @@ describe('Production Environment', () => {
     
     // Verify our new tools are present
     expect(toolNames).toContain('inventory_products_lookup');
-    expect(toolNames).toContain('inventory_stock_print_label');
+    expect(toolNames).toContain('inventory_stock_entry_print_label');
     
     // Verify core tools from each module are present
     expect(toolNames).toContain('inventory_products_get');
@@ -40,7 +40,7 @@ describe('Production Environment', () => {
     // Test a sample of tools to ensure handlers are properly defined
     const sampleTools = [
       'inventory_products_lookup',
-      'inventory_stock_print_label', 
+      'inventory_stock_entry_print_label', 
       'recipes_management_get',
       'shopping_list_get',
       'system_locations_get'

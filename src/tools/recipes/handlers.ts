@@ -5,8 +5,10 @@
 
 import { BaseToolHandler } from '../base.js';
 import { ToolResult, ToolHandler } from '../types.js';
+import { InventoryToolHandlers } from '../inventory/handlers.js';
 
 export class RecipeToolHandlers extends BaseToolHandler {
+  private inventoryHandlers = new InventoryToolHandlers();
 
   /**
    * Get recipes with specified fields
@@ -238,6 +240,16 @@ export class RecipeToolHandlers extends BaseToolHandler {
   /**
    * Create a new recipe
    */
+  public printRecipeLabel: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { recipeId } = args || {};
+      this.validateRequired({ recipeId }, ['recipeId']);
+
+      const result = await this.apiCall(`/recipes/${recipeId}/printlabel`);
+      return this.createSuccess(result, 'Recipe label printed successfully');
+    });
+  };
+
   public createRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const { name, description, baseServings, instructions } = args || {};
@@ -341,7 +353,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       // Get configuration from unified config
       const { config } = await import('../../config/index.js');
       const { toolSubConfigs } = config.parseToolConfiguration();
-      const subConfigs = toolSubConfigs?.get('cooked_something');
+      const subConfigs = toolSubConfigs?.get('complete');
       
       const allowMealPlanEntryAlreadyDone = subConfigs?.get('allow_meal_plan_entry_already_done') ?? false;
       const printLabels = subConfigs?.get('print_labels') ?? true;
@@ -469,13 +481,12 @@ export class RecipeToolHandlers extends BaseToolHandler {
         if (Array.isArray(entries) && entries.length > 0) {
           const originalEntry = entries[0]!;
           
-          // Create split entries manually (simplified version)
-          stockEntries.splitEntries = stockAmounts.map((amount: number, index: number) => ({
-            stockId: `${originalEntry.id}_split_${index}`,
-            amount,
-            type: 'portion',
-            unit: getUnitForm(amount)
-          }));
+          // Use the real stock splitting functionality
+          stockEntries.splitEntries = await this.inventoryHandlers.splitStockEntry(
+            originalEntry, 
+            stockAmounts, 
+            getUnitForm
+          );
           
           // Print labels for all entries (if enabled)
           if (printLabels) {

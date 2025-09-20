@@ -27,7 +27,13 @@ export const inventoryModule: ToolModule = {
     
     // Product Lookup and Label Printing
     inventory_products_lookup: handlers.lookupProduct,
-    inventory_stock_print_label: handlers.printStockEntryLabel
+    inventory_products_print_label: handlers.printProductLabel,
+    inventory_stock_entry_print_label: handlers.printStockEntryLabel,
+    
+    // Granular Stock Entry Operations
+    inventory_stock_entry_consume: handlers.consumeStockEntry,
+    inventory_stock_entry_transfer: handlers.transferStockEntry,
+    inventory_stock_entry_open: handlers.openStockEntry
   }
 };
 

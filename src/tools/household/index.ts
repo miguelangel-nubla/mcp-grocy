@@ -18,6 +18,10 @@ export const householdModule: ToolModule = {
     // Battery Management
     household_batteries_get: handlers.getBatteries,
     household_batteries_charge: handlers.chargeBattery,
+    household_batteries_print_label: handlers.printBatteryLabel,
+    
+    // Chore Label Printing
+    household_chores_print_label: handlers.printChoreLabel,
     
     // Equipment Management
     household_equipment_get: handlers.getEquipment,

@@ -74,7 +74,11 @@ tools:
     enabled: true
     ack_token: "AMBER_CLOUD_WHISTLING"
 
-  inventory_stock_print_label:
+  inventory_products_print_label:
+    enabled: true
+    ack_token: "EMERALD_NOTEBOOK_TWINKLING"
+
+  inventory_stock_entry_print_label:
     enabled: true
     ack_token: "SILVER_PUDDLE_HUMMING"
 
@@ -93,6 +97,10 @@ tools:
     enabled: false
     ack_token: "SILVER_ROCKET_DREAMING"
 
+  recipes_management_print_label:
+    enabled: true
+    ack_token: "CORAL_STARFISH_BLOOMING"
+
   # Recipe Fulfillment
   recipes_fulfillment_get:
     enabled: true
@@ -107,7 +115,7 @@ tools:
     enabled: false
     ack_token: "GOLDEN_UMBRELLA_SPINNING"
 
-  recipes_cooking_cooked_something:
+  recipes_cooking_complete:
     enabled: true
     ack_token: "CRYSTAL_VOLCANO_WHISPERING"
     allow_meal_plan_entry_already_done: false
@@ -158,6 +166,10 @@ tools:
     enabled: false
     # ack_token: "AMBER_LIGHTHOUSE_PAINTING"
 
+  shopping_list_print_thermal:
+    enabled: true
+    ack_token: "VIOLET_COMPASS_SPARKLING"
+
     # ==================== HOUSEHOLD TOOLS ====================
 
     # Chore Management
@@ -168,6 +180,10 @@ tools:
   household_chores_execute:
     enabled: false
     ack_token: "NEON_FOREST_GIGGLING"
+
+  household_chores_print_label:
+    enabled: true
+    ack_token: "SAPPHIRE_BUTTERFLY_GLEAMING"
 
   # Task Management
   household_tasks_get:
@@ -186,6 +202,10 @@ tools:
   household_batteries_charge:
     enabled: false
     ack_token: "PEARL_MEADOW_SWAYING"
+
+  household_batteries_print_label:
+    enabled: true
+    ack_token: "TURQUOISE_CRYSTAL_WHISTLING"
 
   # Equipment Management
   household_equipment_get:

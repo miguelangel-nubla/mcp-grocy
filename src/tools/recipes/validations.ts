@@ -5,9 +5,9 @@
 import { ValidationHelpers, type SubConfigValidator } from '../validation-helpers.js';
 
 /**
- * Validation function for cooked_something tool sub-configurations
+ * Validation function for complete tool sub-configurations
  */
-export const validateCookedSomethingSubConfigs: SubConfigValidator = (subConfigs: Map<string, any>) => {
+export const validateCompleteSubConfigs: SubConfigValidator = (subConfigs: Map<string, any>) => {
   const allowMealPlanEntryAlreadyDone = subConfigs.get('allow_meal_plan_entry_already_done');
   const allowNoMealPlan = subConfigs.get('allow_no_meal_plan');
   const printLabels = subConfigs.get('print_labels');
@@ -24,5 +24,5 @@ export const validateCookedSomethingSubConfigs: SubConfigValidator = (subConfigs
 
   // Check for unknown options
   const knownOptions = new Set(['allow_meal_plan_entry_already_done', 'allow_no_meal_plan', 'print_labels', 'ack_token']);
-  ValidationHelpers.validateKnownOptions(subConfigs, knownOptions, 'cooked_something');
+  ValidationHelpers.validateKnownOptions(subConfigs, knownOptions, 'complete');
 };

@@ -43,7 +43,7 @@ describe('ModuleLoader', () => {
       'recipes_management_get',
       'recipes_management_get_by_id', 
       'recipes_fulfillment_get',
-      'recipes_cooking_cooked_something',
+      'recipes_cooking_complete',
       'recipes_mealplan_get',
       'recipes_mealplan_get_sections',
       'recipes_mealplan_add_recipe'

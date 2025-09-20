@@ -63,6 +63,20 @@ export const recipeToolDefinitions: ToolDefinition[] = [
     }
   },
   {
+    name: 'recipes_management_print_label',
+    description: '[RECIPES/MANAGEMENT] Print a Grocycode label for a recipe. Use recipes_management_get to find valid recipeId values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        recipeId: {
+          type: 'number',
+          description: 'ID of the recipe to print label for. Use recipes_management_get tool to find the correct recipe ID.'
+        }
+      },
+      required: ['recipeId']
+    }
+  },
+  {
     name: 'recipes_fulfillment_get',
     description: '[RECIPES/FULFILLMENT] Check fulfillment status for a specific recipe (what ingredients are available vs needed).',
     inputSchema: {
@@ -214,12 +228,12 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   // ==================== ADVANCED COOKING ====================
   (() => {
     const { toolSubConfigs } = config.parseToolConfiguration();
-    const subConfigs = toolSubConfigs?.get('cooked_something');
+    const subConfigs = toolSubConfigs?.get('complete');
     const allowNoMealPlan = subConfigs?.get('allow_no_meal_plan') ?? false;
     const allowAlreadyDone = subConfigs?.get('allow_meal_plan_entry_already_done') ?? false;
     
     return {
-      name: 'recipes_cooking_cooked_something',
+      name: 'recipes_cooking_complete',
       description: '[RECIPES/COOKING] When the user cooks something this records it as done, consumes recipe ingredients, and creates labeled stock entries with custom portion sizes.',
       inputSchema: {
         type: 'object',

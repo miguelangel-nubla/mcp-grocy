@@ -41,7 +41,7 @@ export class ValidatorRegistry {
 
   /**
    * Convert tool_name to expected validator function name
-   * Example: cooked_something -> validateCookedSomethingSubConfigs
+   * Example: complete -> validateCompleteSubConfigs
    */
   private static getValidatorFunctionName(toolName: string): string {
     const camelCase = toolName.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
@@ -64,7 +64,7 @@ export class ValidatorRegistry {
       'consume_recipe': './recipes/validations.js',
       'add_recipe_products_to_shopping_list': './recipes/validations.js',
       'add_missing_products_to_shopping_list': './recipes/validations.js',
-      'cooked_something': './recipes/validations.js',
+      'complete': './recipes/validations.js',
 
       // Stock tools
       'get_all_stock': './stock/validations.js',
