@@ -24,16 +24,22 @@ const mockedAxios = vi.mocked(axios);
 
 import { GrocyApiClient, ApiError } from '../src/api/client.js';
 
-// Mock config
-vi.mock('../src/config/environment.js', () => ({
-  default: {
-    get: () => ({
-      GROCY_ENABLE_SSL_VERIFY: true,
-      GROCY_APIKEY_VALUE: 'test-api-key'
-    }),
+// Mock the main config
+vi.mock('../src/config/index.js', () => ({
+  config: {
     getGrocyBaseUrl: () => 'http://localhost:9283',
-    getCustomHeaders: () => ({ 'Custom-Header': 'test-value' }),
-    hasApiKeyAuth: () => true
+    getApiUrl: () => 'http://localhost:9283/api',
+    getApiKey: () => 'test-api-key',
+    getCustomHeaders: () => ({}),
+    hasApiKeyAuth: () => true,
+    getConfig: () => ({
+      yaml: {
+        grocy: {
+          enable_ssl_verify: true,
+          response_size_limit: 10000
+        }
+      }
+    })
   }
 }));
 
