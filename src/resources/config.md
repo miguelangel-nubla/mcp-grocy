@@ -64,7 +64,7 @@ Configuration examples for common use cases are provided in `mcp-grocy.yaml.exam
 ### Tool Access Control
 - Disable unused tools to reduce attack surface
 - Use read-only mode for information-gathering use cases
-- Be cautious with tools that modify data (`purchase_product`, `consume_product`, etc.)
+- Be cautious with tools that modify data (`inventory_transactions_purchase`, `inventory_stock_entry_consume`, etc.)
 
 ### Network Security
 - Use HTTPS for production Grocy instances

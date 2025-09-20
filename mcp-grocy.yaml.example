@@ -9,8 +9,8 @@ server:
 
 # Grocy API Configuration
 grocy:
-  base_url: "http://localhost:9283"
-  # api_key: "your_api_key_here"  # Set via GROCY_API_KEY env var
+  base_url: http://localhost:9283
+  # api_key: your_api_key_here  # Set via GROCY_API_KEY env var
   enable_ssl_verify: true
   response_size_limit: 10000
 
@@ -23,114 +23,114 @@ tools:
   # Stock Management
   inventory_stock_get_all:
     enabled: true
-    # ack_token: "MAGENTA_SAILBOAT_TICKING"
+    # ack_token: MAGENTA_SAILBOAT_TICKING
 
   inventory_stock_get_volatile:
     enabled: true
-    # ack_token: "TURQUOISE_RAINBOW_NIBBLING"
+    # ack_token: TURQUOISE_RAINBOW_NIBBLING
 
   inventory_stock_get_by_location:
     enabled: true
-    # ack_token: "LAVENDER_DOORBELL_STRETCHING"
+    # ack_token: LAVENDER_DOORBELL_STRETCHING
 
   inventory_stock_get_by_product:
     enabled: true
-    # ack_token: "CHARTREUSE_SNOWFLAKE_WIGGLING"
+    # ack_token: CHARTREUSE_SNOWFLAKE_WIGGLING
 
     # Stock Transactions
   inventory_transactions_adjust:
     enabled: false
-    ack_token: "ZEBRA_MOUNTAIN_DANCING"
+    ack_token: ZEBRA_MOUNTAIN_DANCING
 
   inventory_transactions_purchase:
     enabled: true
-    ack_token: "PURPLE_TELESCOPE_SINGING"
+    ack_token: PURPLE_TELESCOPE_SINGING
 
   inventory_transactions_consume:
     enabled: false
-    ack_token: "ORANGE_BUTTERFLY_LAUGHING"
+    ack_token: ORANGE_BUTTERFLY_LAUGHING
 
   inventory_transactions_transfer:
     enabled: false
-    ack_token: "BLUE_PIANO_JUMPING"
+    ack_token: BLUE_PIANO_JUMPING
 
   inventory_transactions_open:
     enabled: false
-    ack_token: "GREEN_WHISTLE_FLOATING"
+    ack_token: GREEN_WHISTLE_FLOATING
 
   # Product Management
   inventory_products_get:
     enabled: false
-    # ack_token: "CORAL_SPOON_SKIPPING"
+    # ack_token: CORAL_SPOON_SKIPPING
 
   inventory_products_get_groups:
     enabled: true
-    # ack_token: "INDIGO_CANDLE_TUMBLING"
+    # ack_token: INDIGO_CANDLE_TUMBLING
 
   inventory_products_get_price_history:
     enabled: false
-    # ack_token: "BEIGE_MARBLE_CHIRPING"
+    # ack_token: BEIGE_MARBLE_CHIRPING
 
   inventory_products_lookup:
     enabled: true
-    # ack_token: "AMBER_CLOUD_WHISTLING"
+    # ack_token: AMBER_CLOUD_WHISTLING
 
   inventory_products_print_label:
     enabled: false
-    # ack_token: "EMERALD_NOTEBOOK_TWINKLING"
+    # ack_token: EMERALD_NOTEBOOK_TWINKLING
 
   inventory_stock_entry_print_label:
     enabled: true
-    # ack_token: "SILVER_PUDDLE_HUMMING"
+    # ack_token: SILVER_PUDDLE_HUMMING
 
   inventory_stock_entry_consume:
     enabled: true
-    ack_token: "SAGE_BUTTERFLY_MELTING"
+    ack_token: SAGE_BUTTERFLY_MELTING
 
   inventory_stock_entry_open:
     enabled: true
-    ack_token: "CORAL_THUNDER_SPINNING"
+    ack_token: CORAL_THUNDER_SPINNING
 
   inventory_stock_entry_transfer:
     enabled: true
-    ack_token: "JADE_FEATHER_FLOWING"
+    ack_token: JADE_FEATHER_FLOWING
 
   # ==================== RECIPE TOOLS ====================
 
   # Recipe Management
   recipes_management_get:
     enabled: true
-    # ack_token: "SALMON_COMPASS_HOPPING"
+    # ack_token: SALMON_COMPASS_HOPPING
 
   recipes_management_get_by_id:
     enabled: true
-    # ack_token: "CRIMSON_JELLYBEAN_CRAWLING"
+    # ack_token: CRIMSON_JELLYBEAN_CRAWLING
 
   recipes_management_create:
     enabled: false
-    ack_token: "SILVER_ROCKET_DREAMING"
+    ack_token: SILVER_ROCKET_DREAMING
 
   recipes_management_print_label:
     enabled: false
-    # ack_token: "CORAL_STARFISH_BLOOMING"
+    # ack_token: CORAL_STARFISH_BLOOMING
 
     # Recipe Fulfillment
   recipes_fulfillment_get:
     enabled: true
-    # ack_token: "AZURE_POPCORN_SLIDING"
+    # ack_token: AZURE_POPCORN_SLIDING
 
   recipes_fulfillment_get_all:
     enabled: false
-    # ack_token: "MUSTARD_SNOWBALL_JUGGLING"
+    # ack_token: MUSTARD_SNOWBALL_JUGGLING
 
     # Recipe Cooking
   recipes_cooking_consume:
     enabled: false
-    ack_token: "GOLDEN_UMBRELLA_SPINNING"
+    ack_token: GOLDEN_UMBRELLA_SPINNING
 
   recipes_cooking_complete:
     enabled: true
-    ack_token: "CRYSTAL_VOLCANO_WHISPERING"
+    ack_token: CRYSTAL_VOLCANO_WHISPERING
     allow_meal_plan_entry_already_done: false
     allow_no_meal_plan: false
     print_labels: true
@@ -138,118 +138,118 @@ tools:
   # Recipe Shopping Integration
   recipes_shopping_add_all_products:
     enabled: false
-    ack_token: "COPPER_FEATHER_GLIDING"
+    ack_token: COPPER_FEATHER_GLIDING
 
   recipes_shopping_add_missing_products:
     enabled: false
-    ack_token: "MARBLE_THUNDER_MELTING"
+    ack_token: MARBLE_THUNDER_MELTING
 
   # Meal Planning
   recipes_mealplan_get:
     enabled: true
-    # ack_token: "VIOLET_TRUMPET_ROLLING"
+    # ack_token: VIOLET_TRUMPET_ROLLING
 
   recipes_mealplan_get_sections:
     enabled: true
-    # ack_token: "LIME_COOKIE_FLICKERING"
+    # ack_token: LIME_COOKIE_FLICKERING
 
   recipes_mealplan_add_recipe:
     enabled: false
-    ack_token: "DIAMOND_CACTUS_FLOWING"
+    ack_token: DIAMOND_CACTUS_FLOWING
 
   recipes_mealplan_delete_entry:
     enabled: false
-    ack_token: "VELVET_GLACIER_BOUNCING"
+    ack_token: VELVET_GLACIER_BOUNCING
 
   # ==================== SHOPPING TOOLS ====================
 
   shopping_list_get:
     enabled: true
-    # ack_token: "TEAL_PUZZLE_SPINNING"
+    # ack_token: TEAL_PUZZLE_SPINNING
 
   shopping_list_add_item:
     enabled: true
-    ack_token: "BRONZE_COMET_TWIRLING"
+    ack_token: BRONZE_COMET_TWIRLING
 
   shopping_list_remove_item:
     enabled: false
-    ack_token: "JADE_SHADOW_RIPPLING"
+    ack_token: JADE_SHADOW_RIPPLING
 
   shopping_locations_get:
     enabled: false
-    # ack_token: "AMBER_LIGHTHOUSE_PAINTING"
+    # ack_token: AMBER_LIGHTHOUSE_PAINTING
 
   shopping_list_print_thermal:
     enabled: false
-    # ack_token: "VIOLET_COMPASS_SPARKLING"
+    # ack_token: VIOLET_COMPASS_SPARKLING
 
     # ==================== HOUSEHOLD TOOLS ====================
 
     # Chore Management
   household_chores_get:
     enabled: false
-    # ack_token: "EMERALD_BICYCLE_SNORING"
+    # ack_token: EMERALD_BICYCLE_SNORING
 
   household_chores_execute:
     enabled: false
-    ack_token: "NEON_FOREST_GIGGLING"
+    ack_token: NEON_FOREST_GIGGLING
 
   household_chores_print_label:
     enabled: false
-    # ack_token: "SAPPHIRE_BUTTERFLY_GLEAMING"
+    # ack_token: SAPPHIRE_BUTTERFLY_GLEAMING
 
     # Task Management
   household_tasks_get:
     enabled: false
-    # ack_token: "SCARLET_DRAGON_WHISTLING"
+    # ack_token: SCARLET_DRAGON_WHISTLING
 
   household_tasks_complete:
     enabled: false
-    ack_token: "RUBY_CLOCK_HUMMING"
+    ack_token: RUBY_CLOCK_HUMMING
 
   # Battery Management
   household_batteries_get:
     enabled: false
-    # ack_token: "IVORY_SANDWICH_CLIMBING"
+    # ack_token: IVORY_SANDWICH_CLIMBING
 
   household_batteries_charge:
     enabled: false
-    ack_token: "PEARL_MEADOW_SWAYING"
+    ack_token: PEARL_MEADOW_SWAYING
 
   household_batteries_print_label:
     enabled: true
-    # ack_token: "TURQUOISE_CRYSTAL_WHISTLING"
+    # ack_token: TURQUOISE_CRYSTAL_WHISTLING
 
     # Equipment Management
   household_equipment_get:
     enabled: false
-    # ack_token: "PLUM_TRIANGLE_DANCING"
+    # ack_token: PLUM_TRIANGLE_DANCING
 
     # Action Utilities
   household_actions_undo:
     enabled: false
-    ack_token: "CRIMSON_KITE_SHIMMERING"
+    ack_token: CRIMSON_KITE_SHIMMERING
 
   # ==================== SYSTEM TOOLS ====================
 
   # System Reference Data
   system_locations_get:
     enabled: true
-    # ack_token: "OLIVE_PANCAKE_FLOATING"
+    # ack_token: OLIVE_PANCAKE_FLOATING
 
   system_units_get:
     enabled: true
-    # ack_token: "NAVY_HARMONICA_TUMBLING"
+    # ack_token: NAVY_HARMONICA_TUMBLING
 
   system_users_get:
     enabled: false
-    # ack_token: "GOLD_ENVELOPE_JUGGLING"
+    # ack_token: GOLD_ENVELOPE_JUGGLING
 
     # Developer/Testing Tools
   system_dev_call_api:
     enabled: false
-    # ack_token: "ROSE_ZIPPER_SWIMMING"
+    # ack_token: ROSE_ZIPPER_SWIMMING
 
   system_dev_test_request:
     enabled: false
-    # ack_token: "MINT_TELEPHONE_SKIPPING"
+    # ack_token: MINT_TELEPHONE_SKIPPING

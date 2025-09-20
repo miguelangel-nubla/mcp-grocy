@@ -134,7 +134,7 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
   },
   {
     name: 'inventory_transactions_consume',
-    description: '[INVENTORY/TRANSACTIONS] Remove a product from stock (consume/use inventory). Use inventory_products_get to find the product ID.',
+    description: '[INVENTORY/TRANSACTIONS] Remove a product from stock (consume/use inventory). For more granular control over specific stock entries, prefer inventory_stock_entry_consume. Use inventory_products_get to find the product ID.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -165,7 +165,7 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
   },
   {
     name: 'inventory_transactions_transfer',
-    description: '[INVENTORY/TRANSACTIONS] Transfer a product between locations. Use inventory_products_get to find the product ID and system_locations_get to find location IDs.',
+    description: '[INVENTORY/TRANSACTIONS] Transfer a product between locations. For more granular control over specific stock entries, prefer inventory_stock_entry_transfer. Use inventory_products_get to find the product ID and system_locations_get to find location IDs.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -225,7 +225,7 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
   },
   {
     name: 'inventory_transactions_open',
-    description: '[INVENTORY/TRANSACTIONS] Mark a product as opened/started. Use inventory_products_get to find the product ID.',
+    description: '[INVENTORY/TRANSACTIONS] Mark a product as opened/started. For more granular control over specific stock entries, prefer inventory_stock_entry_open. Use inventory_products_get to find the product ID.',
     inputSchema: {
       type: 'object',
       properties: {

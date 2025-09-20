@@ -296,7 +296,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
         message: `Found ${enrichedMatches.length} product matches for "${productName}" (ordered from most likely to least likely match)`,
         productMatches: enrichedMatches,
         allAvailableLocations: locations.map((l: any) => ({ id: l.id, name: l.name })),
-        instructions: 'Review the matches above. Use the exact productId and locationId from this data for any product operations (consume_product, purchase_product, inventory_product, transfer_product, etc.).'
+        instructions: 'Review the matches above. Use the exact productId and locationId from this data for any product operations (inventory_stock_entry_consume, inventory_stock_entry_transfer, inventory_transactions_purchase, inventory_transactions_adjust, etc.).'
       });
     });
   };

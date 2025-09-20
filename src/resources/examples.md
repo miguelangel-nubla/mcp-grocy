@@ -55,7 +55,7 @@ use_mcp_tool('grocy-api', 'add_shopping_list_item', {
 
 ### Purchase a Product
 ```typescript
-use_mcp_tool('grocy-api', 'purchase_product', {
+use_mcp_tool('grocy-api', 'inventory_transactions_purchase', {
   "productId": 1,
   "amount": 2,
   "bestBeforeDate": "2024-12-31",
@@ -66,7 +66,7 @@ use_mcp_tool('grocy-api', 'purchase_product', {
 
 ### Consume a Product
 ```typescript
-use_mcp_tool('grocy-api', 'consume_product', {
+use_mcp_tool('grocy-api', 'inventory_stock_entry_consume', {
   "productId": 1,
   "amount": 1,
   "spoiled": false
@@ -173,7 +173,7 @@ use_mcp_tool('grocy-api', 'get_shopping_locations', {});
 
 ### Transfer Product Between Locations
 ```typescript
-use_mcp_tool('grocy-api', 'transfer_product', {
+use_mcp_tool('grocy-api', 'inventory_stock_entry_transfer', {
   "productId": 1,
   "amount": 1,
   "locationIdFrom": 1,
