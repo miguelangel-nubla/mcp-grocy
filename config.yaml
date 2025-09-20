@@ -1,5 +1,5 @@
 name: MCP Grocy API
-version: "2.0.0"
+version: 2.0.1
 slug: mcp_grocy_api
 description: Home Assistant addon for MCP server that communicates with Grocy REST API
 arch:
@@ -24,7 +24,7 @@ schema:
   enable_http_server: bool?
   http_server_port: port?
 ports:
-  "8080/tcp": "8080"
+  8080/tcp: "8080"
 ports_description:
-  "8080/tcp": "Streamable HTTP / SSE port"
-image: "ghcr.io/miguelangel-nubla/hassio-addons/{arch}-addon-mcp-grocy-api" # Version will be appended by build
+  8080/tcp: Streamable HTTP / SSE port
+image: ghcr.io/miguelangel-nubla/hassio-addons/{arch}-addon-mcp-grocy-api
