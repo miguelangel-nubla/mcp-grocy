@@ -141,6 +141,18 @@ export class GrocyMcpServer {
       try {
         const subConfigs = this.toolSubConfigs.get(toolName);
         const result = await handler(args, subConfigs);
+        
+        // Automatically add ack_token to successful responses
+        if (!result.isError && subConfigs) {
+          const ackToken = subConfigs.get('ack_token');
+          if (ackToken && typeof ackToken === 'string') {
+            result.content.push({
+              type: 'text' as const,
+              text: `Acknowledgment token: ${ackToken}`
+            });
+          }
+        }
+        
         return result as CallToolResult;
       } catch (error: any) {
         ErrorHandler.logError(error, `tool: ${toolName}`);
