@@ -3,8 +3,7 @@ import { ToolDefinition } from '../types.js';
 export const shoppingToolDefinitions: ToolDefinition[] = [
   {
     name: 'shopping_lists_get',
-    description:
-      '[SHOPPING/BOOK] Get all shopping lists, including their ID, name, and manual_items. Use manual_items for free-form product names or shopping entries that do not exist yet as Grocy products.',
+    description: '[SHOPPING/BOOK] Get all shopping lists, including their ID, name, and notes.',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',
@@ -15,7 +14,7 @@ export const shoppingToolDefinitions: ToolDefinition[] = [
   {
     name: 'shopping_list_get',
     description:
-      '[SHOPPING/LIST] Get a shopping list, including its metadata (like manual_items) and its array of product items.',
+      '[SHOPPING/LIST] Get a shopping list, including its metadata (like notes) and its array of product items.',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',
@@ -32,8 +31,7 @@ export const shoppingToolDefinitions: ToolDefinition[] = [
   },
   {
     name: 'shopping_list_update',
-    description:
-      '[SHOPPING/BOOK] Update a shopping list. Use manual_items for free-form product names or shopping entries that do not exist yet as Grocy products. IMPORTANT: When adding new items to manual_items, you must preserve existing items (e.g. by appending to the current manual_items string).',
+    description: '[SHOPPING/BOOK] Update a shopping list. You can update its name or notes.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -46,15 +44,9 @@ export const shoppingToolDefinitions: ToolDefinition[] = [
           type: 'string',
           description: 'Optional. New name for the shopping list.',
         },
-        manual_items: {
+        notes: {
           type: 'string',
-          description:
-            'Optional. Free-form shopping entries or product names that are not yet created in Grocy. Stored in Grocy as the list description.',
-        },
-        append_manual_items: {
-          type: 'string',
-          description:
-            'Optional. Use this to easily add a new free-form item to the end of the existing manual_items without overwriting them. (e.g. "Apples")',
+          description: 'Optional. Notes or description for the shopping list.',
         },
       },
       required: ['shoppingListId'],
@@ -63,14 +55,14 @@ export const shoppingToolDefinitions: ToolDefinition[] = [
   {
     name: 'shopping_list_add_item',
     description:
-      "[SHOPPING/LIST] Add an item to a shopping list. Use inventory_products_get first to find the product ID you want to add. IMPORTANT: If the product does NOT exist in Grocy, do NOT use this tool. Instead, use shopping_list_update to append the item to the list's manual_items string.",
+      '[SHOPPING/LIST] Add an item to a shopping list. Use inventory_products_get first to find the product ID you want to add. If multiple similar products exist or you are unsure, you can omit the product ID and just provide the item name in the note.',
     inputSchema: {
       type: 'object',
       properties: {
         productId: {
           type: 'number',
           description:
-            'ID of the product to add. Use inventory_products_get tool to find the correct product ID by searching for the product name in the results.',
+            'Optional. ID of the product to add. If a great match is found, use it. Otherwise, omit this and just specify the requested item in the note.',
         },
         amount: {
           type: 'number',
@@ -86,16 +78,16 @@ export const shoppingToolDefinitions: ToolDefinition[] = [
         },
         note: {
           type: 'string',
-          description: 'Optional note for the shopping list item',
+          description: 'Note or name of the item. Required if productId is omitted.',
         },
       },
-      required: ['productId'],
+      required: [],
     },
   },
   {
     name: 'shopping_list_remove_item',
     description:
-      '[SHOPPING/LIST] Remove an item from a shopping list. Use shopping_list_get first to find the shopping list item ID. IMPORTANT: If you are trying to remove a free-form "manual item", do NOT use this tool. Instead, use shopping_list_update to overwrite the manual_items string with the item removed.',
+      '[SHOPPING/LIST] Remove an item from a shopping list. Use shopping_list_get first to find the shopping list item ID.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -111,7 +103,7 @@ export const shoppingToolDefinitions: ToolDefinition[] = [
   {
     name: 'shopping_list_update_item',
     description:
-      '[SHOPPING/LIST] Update an item in a shopping list (e.g., to edit the note or amount). Use shopping_list_get first to find the shopping list item ID. IMPORTANT: If you are trying to edit a free-form "manual item", do NOT use this tool. Instead, use shopping_list_update to overwrite the manual_items string with the edited item.',
+      '[SHOPPING/LIST] Update an item in a shopping list (e.g., to edit the note or amount). Use shopping_list_get first to find the shopping list item ID.',
     inputSchema: {
       type: 'object',
       properties: {

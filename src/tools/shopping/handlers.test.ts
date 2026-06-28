@@ -23,11 +23,11 @@ describe('ShoppingToolHandlers', () => {
 
   beforeEach(() => {
     handlers = new ShoppingToolHandlers();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   describe('getShoppingList', () => {
@@ -44,12 +44,11 @@ describe('ShoppingToolHandlers', () => {
         { id: 4, name: 'liters' },
         { id: 5, name: 'pieces' },
       ];
-      const mockShoppingLists = [{ id: 1, name: 'Groceries', description: 'Manual items' }];
+      const mockShoppingLists = [{ id: 1, name: 'Groceries', description: 'Shopping list' }];
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockShoppingList, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockShoppingLists[0], status: 200, headers: {} });
 
       const result = await handlers.getShoppingList({ shoppingListId: 1 });
@@ -65,7 +64,7 @@ describe('ShoppingToolHandlers', () => {
         list: {
           id: 1,
           name: 'Groceries',
-          manual_items: 'Manual items',
+          notes: 'Shopping list',
         },
         items: [
           {
@@ -76,15 +75,14 @@ describe('ShoppingToolHandlers', () => {
               id: 1,
               name: 'Milk',
               description: 'Whole milk',
-              quIdStock: 4,
+              quantityUnitStock: {
+                id: 4,
+                name: 'liters',
+              },
             },
             quantityUnit: {
               id: 4,
               name: 'liters',
-            },
-            shoppingList: {
-              id: 1,
-              name: 'Groceries',
             },
           },
           {
@@ -95,15 +93,14 @@ describe('ShoppingToolHandlers', () => {
               id: 2,
               name: 'Bread',
               description: 'Wheat bread',
-              quIdStock: 5,
+              quantityUnitStock: {
+                id: 5,
+                name: 'pieces',
+              },
             },
             quantityUnit: {
               id: 5,
               name: 'pieces',
-            },
-            shoppingList: {
-              id: 1,
-              name: 'Groceries',
             },
           },
         ],
@@ -124,12 +121,10 @@ describe('ShoppingToolHandlers', () => {
       const mockResponse = { id: 1, product_id: 1, shopping_list_id: 2 };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
-      const mockShoppingLists = [{ id: 2, name: 'Groceries' }];
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
 
       const result = await handlers.addShoppingListItem({
         productId: 1,
@@ -156,15 +151,14 @@ describe('ShoppingToolHandlers', () => {
           id: 1,
           name: 'Milk',
           description: 'Whole milk',
-          quIdStock: 4,
+          quantityUnitStock: {
+            id: 4,
+            name: 'liters',
+          },
         },
         quantityUnit: {
           id: 4,
           name: 'liters',
-        },
-        shoppingList: {
-          id: 2,
-          name: 'Groceries',
         },
       });
     });
@@ -173,12 +167,10 @@ describe('ShoppingToolHandlers', () => {
       const mockResponse = { id: 1, product_id: 1, shopping_list_id: 1 };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
-      const mockShoppingLists = [{ id: 1, name: 'Groceries' }];
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
 
       const result = await handlers.addShoppingListItem({
         productId: 1,
@@ -201,38 +193,68 @@ describe('ShoppingToolHandlers', () => {
           id: 1,
           name: 'Milk',
           description: 'Whole milk',
-          quIdStock: 4,
+          quantityUnitStock: {
+            id: 4,
+            name: 'liters',
+          },
         },
         quantityUnit: {
           id: 4,
           name: 'liters',
         },
-        shoppingList: {
-          id: 1,
-          name: 'Groceries',
-        },
       });
     });
 
-    it('should require productId parameter', async () => {
+    it('should require productId or note parameter', async () => {
       const result = await handlers.addShoppingListItem({});
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Missing required parameters: productId');
+      expect(result.content[0].text).toContain('Either productId or note must be provided');
     });
 
     it('should handle missing args', async () => {
       const result = await handlers.addShoppingListItem();
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Missing required parameters: productId');
+      expect(result.content[0].text).toContain('Either productId or note must be provided');
+    });
+
+    it('should allow adding item with just a note', async () => {
+      const mockResponse = { id: 1, shopping_list_id: 1, note: 'Just a note' };
+      const mockProducts: any[] = [];
+      const mockQuantityUnits: any[] = [];
+
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
+        .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
+
+      const result = await handlers.addShoppingListItem({
+        note: 'Just a note',
+      });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/shopping_list', {
+        method: 'POST',
+        body: {
+          amount: 1,
+          shopping_list_id: 1,
+          note: 'Just a note',
+        },
+        queryParams: {},
+      });
+      expect(result.isError).toBeUndefined();
+      expect(result.structuredContent?.data).toEqual({
+        id: 1,
+        note: 'Just a note',
+        shopping_list_id: 1,
+      });
     });
   });
 
   describe('removeShoppingListItem', () => {
     it('should remove shopping list item', async () => {
       const mockResponse = { success: true };
-      mockApiClient.request.mockResolvedValue({
+      mockApiClient.request.mockResolvedValueOnce({
         data: mockResponse,
         status: 200,
         headers: {},
@@ -277,7 +299,6 @@ describe('ShoppingToolHandlers', () => {
       };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
-      const mockShoppingLists = [{ id: 1, name: 'Groceries' }];
       const mockResponse = {
         id: 1,
         product_id: 1,
@@ -290,8 +311,7 @@ describe('ShoppingToolHandlers', () => {
         .mockResolvedValueOnce({ data: mockExistingItem, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockResponse, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
 
       const result = await handlers.updateShoppingListItem({
         shoppingListItemId: 1,
@@ -325,15 +345,14 @@ describe('ShoppingToolHandlers', () => {
           id: 1,
           name: 'Milk',
           description: 'Whole milk',
-          quIdStock: 4,
+          quantityUnitStock: {
+            id: 4,
+            name: 'liters',
+          },
         },
         quantityUnit: {
           id: 4,
           name: 'liters',
-        },
-        shoppingList: {
-          id: 1,
-          name: 'Groceries',
         },
       });
     });
@@ -352,7 +371,7 @@ describe('ShoppingToolHandlers', () => {
         { id: 1, name: 'Grocery Store A' },
         { id: 2, name: 'Supermarket B' },
       ];
-      mockApiClient.request.mockResolvedValue({
+      mockApiClient.request.mockResolvedValueOnce({
         data: mockLocations,
         status: 200,
         headers: {},
@@ -381,7 +400,7 @@ describe('ShoppingToolHandlers', () => {
   describe('printShoppingListThermal', () => {
     it('should print shopping list thermally successfully', async () => {
       const mockPrintResponse = { data: { success: true }, status: 200, headers: {} };
-      mockApiClient.request.mockResolvedValue(mockPrintResponse);
+      mockApiClient.request.mockResolvedValueOnce(mockPrintResponse);
 
       const result = await handlers.printShoppingListThermal({});
 
@@ -403,7 +422,7 @@ describe('ShoppingToolHandlers', () => {
         { id: 1, name: 'Default', description: 'My first list' },
         { id: 2, name: 'Secondary', description: 'Another list' },
       ];
-      mockApiClient.request.mockResolvedValue({
+      mockApiClient.request.mockResolvedValueOnce({
         data: mockShoppingLists,
         status: 200,
         headers: {},
@@ -448,7 +467,7 @@ describe('ShoppingToolHandlers', () => {
 
       const result = await handlers.updateShoppingList({
         shoppingListId: 1,
-        manual_items: 'New description',
+        notes: 'New description',
       });
 
       expect(mockApiClient.request).toHaveBeenNthCalledWith(1, '/objects/shopping_lists/1', {
