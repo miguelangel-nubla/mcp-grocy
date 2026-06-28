@@ -170,9 +170,17 @@ tools:
 
   # ==================== SHOPPING TOOLS ====================
 
+  shopping_lists_get:
+    enabled: true
+    # ack_token: CERULEAN_LANTERN_WALTZING
+
   shopping_list_get:
     enabled: true
     # ack_token: TEAL_PUZZLE_SPINNING
+
+  shopping_list_update:
+    enabled: false
+    ack_token: COBALT_RIBBON_GLIDING
 
   shopping_list_add_item:
     enabled: true
@@ -181,6 +189,10 @@ tools:
   shopping_list_remove_item:
     enabled: false
     ack_token: JADE_SHADOW_RIPPLING
+
+  shopping_list_update_item:
+    enabled: false
+    ack_token: TOPAZ_LADDER_SPARKING
 
   shopping_locations_get:
     enabled: false
