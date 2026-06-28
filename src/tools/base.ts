@@ -18,11 +18,10 @@ export abstract class BaseToolHandler {
           type: 'text' as const,
           text: message || 'Operation completed successfully',
         },
-        {
-          type: 'text' as const,
-          text: JSON.stringify(data, null, 2),
-        },
       ],
+      structuredContent: {
+        data: data ?? null,
+      },
     };
   }
 

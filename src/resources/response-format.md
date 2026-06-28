@@ -102,7 +102,10 @@ These values can be set in your `.env` file for local development or in your pro
 
 ## Specialized Grocy Tools Response Format
 
-Tools like `inventory_stock_get_all`, `inventory_products_get`, `shopping_list_add_item`, etc., return the Grocy API response as MCP text content (usually stringified JSON).
+Tools like `inventory_stock_get_all`, `inventory_products_get`, `shopping_list_add_item`, etc., return successful Grocy API responses as structured MCP tool output:
+
+- `structuredContent.data`: the parsed Grocy response.
+- `content`: short human-readable status text.
 
 Example shape for a product-related read (illustrative):
 
@@ -111,14 +114,15 @@ Example shape for a product-related read (illustrative):
   "content": [
     {
       "type": "text",
-      "text": "{\n  \"id\": \"1\",\n  \"name\": \"Cookies\",\n  \"description\": null,\n  \"product_group_id\": \"1\",\n  \"qu_id_purchase\": \"2\",\n  \"qu_id_stock\": \"2\",\n  \"qu_factor_purchase_to_stock\": \"1.0\",\n  \"barcode\": null,\n  \"min_stock_amount\": \"0\",\n  \"default_best_before_days\": \"0\",\n  \"default_best_before_days_after_open\": \"0\",\n  \"default_best_before_days_after_freezing\": \"0\",\n  \"default_best_before_days_after_thawing\": \"0\",\n  \"picture_file_name\": null,\n  \"allow_partial_units_in_stock\": \"0\",\n  \"row_created_timestamp\": \"2023-01-01 10:00:00\",\n  \"show_in_recipes_list\": \"1\",\n  \"has_sub_products\": \"0\",\n  \"active\": \"1\",\n  \"calories\": null,\n  \"cumulate_min_stock_amount_of_sub_products\": \"0\",\n  \"due_type\": \"1\",\n  \"quick_consume_amount\": \"1.0\",\n  \"hide_on_stock_overview\": \"0\",\n  \"default_stock_label_type\": \"0\",\n  \"should_not_be_frozen\": \"0\",\n  \"treat_opened_as_out_of_stock\": \"1\",
-  \"no_own_stock\": \"0\",
-  \"default_consume_location_id\": null,
-  \"move_on_open\": \"0\",
-  \"userfields\": null
-}"
+      "text": "Product retrieved successfully"
     }
-  ]
+  ],
+  "structuredContent": {
+    "data": {
+      "id": "1",
+      "name": "Cookies"
+    }
+  }
 }
 ```
 

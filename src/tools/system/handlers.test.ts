@@ -309,7 +309,7 @@ describe('SystemToolHandlers', () => {
       });
       expect(result.isError).toBeUndefined();
 
-      const responseData = JSON.parse(result.content[1].text);
+      const responseData = result.structuredContent?.data as any;
       expect(responseData).toMatchObject({
         request: {
           url: 'http://localhost:9283/objects/products',
@@ -345,7 +345,7 @@ describe('SystemToolHandlers', () => {
       });
 
       expect(result.isError).toBeUndefined();
-      const responseData = JSON.parse(result.content[1].text);
+      const responseData = result.structuredContent?.data as any;
       expect(typeof responseData.response.body).toBe('string');
       expect(responseData.response.body).toContain('[TRUNCATED]');
       expect(responseData.validation.truncated).toBeDefined();

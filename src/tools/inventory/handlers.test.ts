@@ -48,7 +48,8 @@ describe('InventoryToolHandlers', () => {
       });
 
       expect(result.content[0].type).toBe('text');
-      expect(JSON.parse(result.content[1].text)).toEqual(mockResponse.data);
+      expect(result.content).toHaveLength(1);
+      expect(result.structuredContent?.data).toEqual(mockResponse.data);
     });
   });
 

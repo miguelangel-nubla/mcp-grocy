@@ -433,7 +433,7 @@ describe('RecipeToolHandlers', () => {
       const result = await handlers.getMealPlan({ date: '2024-01-15' });
 
       expect(result.isError).toBeUndefined();
-      expect(JSON.parse(result.content[1].text)).toEqual({
+      expect(result.structuredContent?.data).toEqual({
         message: 'No meals planned for the requested date',
         meal_plan_by_date: {},
       });
@@ -474,7 +474,7 @@ describe('RecipeToolHandlers', () => {
 
       expect(result.isError).toBeUndefined();
 
-      const response = JSON.parse(result.content[1].text);
+      const response = result.structuredContent?.data;
       expect(response).toEqual({
         meal_plan_by_date: {
           '2024-01-15': [
@@ -563,7 +563,7 @@ describe('RecipeToolHandlers', () => {
 
       expect(result.isError).toBeUndefined();
 
-      const response = JSON.parse(result.content[1].text);
+      const response = result.structuredContent?.data as any;
       expect(response.meal_plan_by_date['2024-01-19']).toBeDefined();
       expect(response.meal_plan_by_date['2024-01-19'][0].id).toBe(1);
 

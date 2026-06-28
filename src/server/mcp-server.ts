@@ -4,6 +4,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
 import {
   CallToolRequestSchema,
   CallToolResult,
@@ -104,6 +105,7 @@ export class GrocyMcpServer {
           ...(def.title?.trim() ? { title: def.title.trim() } : {}),
           description: def.description,
           inputSchema,
+          outputSchema: z.object({ data: z.unknown() }),
           ...(def.annotations ? { annotations: def.annotations } : {}),
           ...(def.meta && Object.keys(def.meta).length > 0 ? { _meta: def.meta } : {}),
         },

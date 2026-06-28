@@ -99,11 +99,10 @@ describe('BaseToolHandler', () => {
             type: 'text',
             text: 'Operation completed successfully',
           },
-          {
-            type: 'text',
-            text: JSON.stringify(data, null, 2),
-          },
         ],
+        structuredContent: {
+          data,
+        },
       });
     });
 
@@ -116,8 +115,8 @@ describe('BaseToolHandler', () => {
       const result = handler.testCreateSuccess(data);
 
       expect(result.content[0].type).toBe('text');
-      expect(result.content[1].type).toBe('text');
-      expect(JSON.parse(result.content[1].text)).toEqual(data);
+      expect(result.content).toHaveLength(1);
+      expect(result.structuredContent).toEqual({ data });
     });
 
     it('should include custom message when provided', () => {
@@ -126,7 +125,8 @@ describe('BaseToolHandler', () => {
       const result = handler.testCreateSuccess(data, message);
 
       expect(result.content[0].text).toBe(message);
-      expect(JSON.parse(result.content[1].text)).toEqual(data);
+      expect(result.content).toHaveLength(1);
+      expect(result.structuredContent).toEqual({ data });
     });
   });
 
@@ -267,11 +267,10 @@ describe('BaseToolHandler', () => {
             type: 'text',
             text: 'Operation completed successfully',
           },
-          {
-            type: 'text',
-            text: JSON.stringify(mockData, null, 2),
-          },
         ],
+        structuredContent: {
+          data: mockData,
+        },
       });
     });
 

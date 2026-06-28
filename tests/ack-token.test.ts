@@ -4,10 +4,8 @@ describe('Acknowledgment Token Logic', () => {
   it('should add acknowledgment token to successful tool result', () => {
     // Simulate the logic from mcp-server.ts
     const result = {
-      content: [
-        { type: 'text' as const, text: 'Operation completed successfully' },
-        { type: 'text' as const, text: '{"result": "success"}' },
-      ],
+      content: [{ type: 'text' as const, text: 'Operation completed successfully' }],
+      structuredContent: { data: { result: 'success' } },
     };
 
     const subConfigs = new Map([['ack_token', 'TEST_ACKNOWLEDGMENT_TOKEN']]);
@@ -24,18 +22,16 @@ describe('Acknowledgment Token Logic', () => {
     }
 
     // Verify the result includes the acknowledgment token
-    expect(result.content).toHaveLength(3);
+    expect(result.content).toHaveLength(2);
     expect(result.content[0].text).toBe('Acknowledgment token: TEST_ACKNOWLEDGMENT_TOKEN');
     expect(result.content[1].text).toBe('Operation completed successfully');
-    expect(result.content[2].text).toBe('{"result": "success"}');
+    expect(result.structuredContent).toEqual({ data: { result: 'success' } });
   });
 
   it('should not add acknowledgment token when not configured', () => {
     const result = {
-      content: [
-        { type: 'text' as const, text: 'Operation completed successfully' },
-        { type: 'text' as const, text: '{"result": "success"}' },
-      ],
+      content: [{ type: 'text' as const, text: 'Operation completed successfully' }],
+      structuredContent: { data: { result: 'success' } },
     };
 
     const subConfigs = new Map(); // No ack_token configured
@@ -51,10 +47,10 @@ describe('Acknowledgment Token Logic', () => {
       }
     }
 
-    // Should only have the original 2 content items, no ack_token
-    expect(result.content).toHaveLength(2);
+    // Should only have the original content item, no ack_token
+    expect(result.content).toHaveLength(1);
     expect(result.content[0].text).toBe('Operation completed successfully');
-    expect(result.content[1].text).toBe('{"result": "success"}');
+    expect(result.structuredContent).toEqual({ data: { result: 'success' } });
   });
 
   it('should not add acknowledgment token for error responses', () => {
