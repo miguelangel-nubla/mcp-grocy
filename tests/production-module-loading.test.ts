@@ -64,7 +64,7 @@ describe('Production Module Loading', () => {
   it('should load specific recipe module export correctly', async () => {
     // Test loading the specific module export directly
     try {
-      const recipeIndex = await import('../build/tools/recipes/index.js');
+      const recipeIndex = await import('../src/tools/recipes/index.js');
       console.log('Recipe index exports:', Object.keys(recipeIndex));
 
       // Check if recipeModule is exported
