@@ -24,7 +24,7 @@ schema:
   enable_http_server: bool?
   http_server_port: port?
 ports:
-  8080/tcp: "8080"
+  8080/tcp: '8080'
 ports_description:
   8080/tcp: Streamable HTTP / SSE port
 image: ghcr.io/miguelangel-nubla/hassio-addons/{arch}-addon-mcp-grocy-api
