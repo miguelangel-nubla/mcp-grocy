@@ -2,10 +2,46 @@ import { BaseToolHandler } from '../base.js';
 import { ToolResult, ToolHandler } from '../types.js';
 
 export class ShoppingToolHandlers extends BaseToolHandler {
-  public getShoppingList: ToolHandler = async (): Promise<ToolResult> => {
+  public getShoppingLists: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const result = await this.apiCall('/objects/shopping_list');
+      const result = await this.apiCall('/objects/shopping_lists');
+      return this.createSuccess(result, 'Shopping lists retrieved successfully');
+    });
+  };
+
+  public getShoppingList: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { shoppingListId } = args || {};
+      const queryParams: Record<string, string> = {};
+      if (shoppingListId !== undefined) {
+        queryParams['query[]'] = `shopping_list_id=${shoppingListId}`;
+      }
+      const result = await this.apiCall('/objects/shopping_list', 'GET', undefined, {
+        queryParams,
+      });
       return this.createSuccess(result, 'Shopping list retrieved successfully');
+    });
+  };
+
+  public updateShoppingList: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { shoppingListId, name, description } = args || {};
+      this.validateRequired({ shoppingListId }, ['shoppingListId']);
+
+      const existingList = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`);
+      if (!existingList) {
+        throw new Error(`Shopping list ${shoppingListId} not found`);
+      }
+
+      const body = {
+        ...existingList,
+      };
+
+      if (name !== undefined) body.name = name;
+      if (description !== undefined) body.description = description;
+
+      const result = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`, 'PUT', body);
+      return this.createSuccess(result, 'Shopping list updated successfully');
     });
   };
 
@@ -55,8 +91,24 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       if (shoppingListId !== undefined) body.shopping_list_id = shoppingListId;
       if (note !== undefined) body.note = note;
 
-      const result = await this.apiCall(`/objects/shopping_list/${shoppingListItemId}`, 'PUT', body);
+      const result = await this.apiCall(
+        `/objects/shopping_list/${shoppingListItemId}`,
+        'PUT',
+        body,
+      );
       return this.createSuccess(result, 'Shopping list item updated successfully');
+    });
+  };
+
+  public printShoppingListThermal: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { shoppingListId } = args || {};
+      const endpoint =
+        shoppingListId !== undefined
+          ? `/print/shoppinglist/thermal?list_id=${shoppingListId}`
+          : '/print/shoppinglist/thermal';
+      const result = await this.apiCall(endpoint);
+      return this.createSuccess(result, 'Shopping list sent to thermal printer successfully');
     });
   };
 
@@ -64,13 +116,6 @@ export class ShoppingToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/shopping_locations');
       return this.createSuccess(result, 'Shopping locations retrieved successfully');
-    });
-  };
-
-  public printShoppingListThermal: ToolHandler = async (): Promise<ToolResult> => {
-    return this.executeToolHandler(async () => {
-      const result = await this.apiCall('/print/shoppinglist/thermal');
-      return this.createSuccess(result, 'Shopping list sent to thermal printer successfully');
     });
   };
 }
