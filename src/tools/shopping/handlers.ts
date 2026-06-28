@@ -5,14 +5,17 @@ export class ShoppingToolHandlers extends BaseToolHandler {
   private async getResolvedShoppingMetadata(): Promise<{
     productsById: Map<number, any>;
     quantityUnitsById: Map<number, any>;
+    shoppingListsById: Map<number, any>;
   }> {
-    const [productsResponse, quantityUnitsResponse] = await Promise.all([
+    const [productsResponse, quantityUnitsResponse, shoppingListsResponse] = await Promise.all([
       this.apiCall('/objects/products'),
       this.apiCall('/objects/quantity_units'),
+      this.apiCall('/objects/shopping_lists'),
     ]);
 
     const products = Array.isArray(productsResponse) ? productsResponse : [];
     const quantityUnits = Array.isArray(quantityUnitsResponse) ? quantityUnitsResponse : [];
+    const shoppingLists = Array.isArray(shoppingListsResponse) ? shoppingListsResponse : [];
 
     return {
       productsById: new Map(
@@ -25,6 +28,11 @@ export class ShoppingToolHandlers extends BaseToolHandler {
           .filter((unit: any) => unit && unit.id !== undefined && unit.id !== null)
           .map((unit: any) => [Number(unit.id), unit]),
       ),
+      shoppingListsById: new Map(
+        shoppingLists
+          .filter((list: any) => list && list.id !== undefined && list.id !== null)
+          .map((list: any) => [Number(list.id), list]),
+      ),
     };
   }
 
@@ -32,6 +40,7 @@ export class ShoppingToolHandlers extends BaseToolHandler {
     item: any,
     productsById: Map<number, any>,
     quantityUnitsById: Map<number, any>,
+    shoppingListsById: Map<number, any>,
   ) {
     const productId =
       item?.product_id !== undefined && item?.product_id !== null ? Number(item.product_id) : null;
@@ -44,8 +53,23 @@ export class ShoppingToolHandlers extends BaseToolHandler {
           : null;
     const quantityUnit = quId !== null ? quantityUnitsById.get(quId) : undefined;
 
+    const shoppingListIdStr = item?.shopping_list_id;
+    const shoppingListIdNum =
+      shoppingListIdStr !== undefined && shoppingListIdStr !== null
+        ? Number(shoppingListIdStr)
+        : null;
+    const shoppingList =
+      shoppingListIdNum !== null ? shoppingListsById.get(shoppingListIdNum) : undefined;
+
+    const {
+      product_id: _product_id,
+      shopping_list_id: _shopping_list_id,
+      qu_id: _qu_id,
+      ...restItem
+    } = item || {};
+
     return {
-      ...item,
+      ...restItem,
       product: product
         ? {
             id: product.id,
@@ -60,6 +84,12 @@ export class ShoppingToolHandlers extends BaseToolHandler {
             name: quantityUnit.name,
           }
         : null,
+      shoppingList: shoppingList
+        ? {
+            id: shoppingList.id,
+            name: shoppingList.name,
+          }
+        : null,
     };
   }
 
@@ -69,8 +99,11 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         return data;
       }
 
-      const { productsById, quantityUnitsById } = await this.getResolvedShoppingMetadata();
-      return data.map((item) => this.enrichShoppingListItem(item, productsById, quantityUnitsById));
+      const { productsById, quantityUnitsById, shoppingListsById } =
+        await this.getResolvedShoppingMetadata();
+      return data.map((item) =>
+        this.enrichShoppingListItem(item, productsById, quantityUnitsById, shoppingListsById),
+      );
     }
 
     if (data && typeof data === 'object') {
@@ -79,38 +112,74 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         return data;
       }
 
-      const { productsById, quantityUnitsById } = await this.getResolvedShoppingMetadata();
-      return this.enrichShoppingListItem(data, productsById, quantityUnitsById);
+      const { productsById, quantityUnitsById, shoppingListsById } =
+        await this.getResolvedShoppingMetadata();
+      return this.enrichShoppingListItem(data, productsById, quantityUnitsById, shoppingListsById);
     }
 
     return data;
   }
 
+  private normalizeShoppingList(item: any): any {
+    if (!item || typeof item !== 'object') {
+      return item;
+    }
+
+    const { description, ...rest } = item;
+
+    return {
+      ...rest,
+      manual_items: description ?? null,
+    };
+  }
+
+  private normalizeShoppingListsResponse(data: any): any {
+    if (Array.isArray(data)) {
+      return data.map((item) => this.normalizeShoppingList(item));
+    }
+
+    return this.normalizeShoppingList(data);
+  }
+
   public getShoppingLists: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/shopping_lists');
-      return this.createSuccess(result, 'Shopping lists retrieved successfully');
+      return this.createSuccess(
+        this.normalizeShoppingListsResponse(result),
+        'Shopping lists retrieved successfully',
+      );
     });
   };
 
   public getShoppingList: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const { shoppingListId } = args || {};
-      const queryParams: Record<string, string> = {};
-      if (shoppingListId !== undefined) {
-        queryParams['query[]'] = `shopping_list_id=${shoppingListId}`;
-      }
+      this.validateRequired({ shoppingListId }, ['shoppingListId']);
+
+      const queryParams: Record<string, string> = {
+        'query[]': `shopping_list_id=${shoppingListId}`,
+      };
       const result = await this.apiCall('/objects/shopping_list', 'GET', undefined, {
         queryParams,
       });
       const enriched = await this.enrichShoppingListResponse(result);
-      return this.createSuccess(enriched, 'Shopping list retrieved successfully');
+
+      const meta = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`);
+      const listMetadata = this.normalizeShoppingList(meta);
+
+      return this.createSuccess(
+        {
+          list: listMetadata,
+          items: enriched,
+        },
+        'Shopping list retrieved successfully',
+      );
     });
   };
 
   public updateShoppingList: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { shoppingListId, name, description } = args || {};
+      const { shoppingListId, name, manual_items, append_manual_items } = args || {};
       this.validateRequired({ shoppingListId }, ['shoppingListId']);
 
       const existingList = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`);
@@ -123,10 +192,22 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       };
 
       if (name !== undefined) body.name = name;
-      if (description !== undefined) body.description = description;
+      if (manual_items !== undefined) {
+        body.description = manual_items;
+      }
+
+      if (append_manual_items !== undefined) {
+        const currentItems = body.description || '';
+        body.description = currentItems
+          ? `${currentItems}\n${append_manual_items}`
+          : append_manual_items;
+      }
 
       const result = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`, 'PUT', body);
-      return this.createSuccess(result, 'Shopping list updated successfully');
+      return this.createSuccess(
+        this.normalizeShoppingListsResponse(result),
+        'Shopping list updated successfully',
+      );
     });
   };
 

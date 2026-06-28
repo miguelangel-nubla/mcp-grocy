@@ -33,8 +33,8 @@ describe('ShoppingToolHandlers', () => {
   describe('getShoppingList', () => {
     it('should get shopping list', async () => {
       const mockShoppingList = [
-        { id: 1, product_id: 1, amount: 2, note: 'Buy milk' },
-        { id: 2, product_id: 2, amount: 1, note: 'Buy bread' },
+        { id: 1, product_id: 1, amount: 2, note: 'Buy milk', shopping_list_id: 1 },
+        { id: 2, product_id: 2, amount: 1, note: 'Buy bread', shopping_list_id: 1 },
       ];
       const mockProducts = [
         { id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 },
@@ -44,60 +44,76 @@ describe('ShoppingToolHandlers', () => {
         { id: 4, name: 'liters' },
         { id: 5, name: 'pieces' },
       ];
+      const mockShoppingLists = [{ id: 1, name: 'Groceries', description: 'Manual items' }];
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockShoppingList, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockShoppingLists[0], status: 200, headers: {} });
 
-      const result = await handlers.getShoppingList();
+      const result = await handlers.getShoppingList({ shoppingListId: 1 });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/shopping_list', {
         method: 'GET',
         body: undefined,
-        queryParams: {},
+        queryParams: { 'query[]': 'shopping_list_id=1' },
       });
       expect(result.isError).toBeUndefined();
       expect(result.content[0].text).toContain('Shopping list retrieved successfully');
-      expect(result.structuredContent?.data).toEqual([
-        {
+      expect(result.structuredContent?.data).toEqual({
+        list: {
           id: 1,
-          product_id: 1,
-          amount: 2,
-          note: 'Buy milk',
-          product: {
+          name: 'Groceries',
+          manual_items: 'Manual items',
+        },
+        items: [
+          {
             id: 1,
-            name: 'Milk',
-            description: 'Whole milk',
-            quIdStock: 4,
+            amount: 2,
+            note: 'Buy milk',
+            product: {
+              id: 1,
+              name: 'Milk',
+              description: 'Whole milk',
+              quIdStock: 4,
+            },
+            quantityUnit: {
+              id: 4,
+              name: 'liters',
+            },
+            shoppingList: {
+              id: 1,
+              name: 'Groceries',
+            },
           },
-          quantityUnit: {
-            id: 4,
-            name: 'liters',
-          },
-        },
-        {
-          id: 2,
-          product_id: 2,
-          amount: 1,
-          note: 'Buy bread',
-          product: {
+          {
             id: 2,
-            name: 'Bread',
-            description: 'Wheat bread',
-            quIdStock: 5,
+            amount: 1,
+            note: 'Buy bread',
+            product: {
+              id: 2,
+              name: 'Bread',
+              description: 'Wheat bread',
+              quIdStock: 5,
+            },
+            quantityUnit: {
+              id: 5,
+              name: 'pieces',
+            },
+            shoppingList: {
+              id: 1,
+              name: 'Groceries',
+            },
           },
-          quantityUnit: {
-            id: 5,
-            name: 'pieces',
-          },
-        },
-      ]);
+        ],
+      });
     });
 
     it('should handle API errors', async () => {
       mockApiClient.request.mockRejectedValue(new Error('API Error'));
 
-      const result = await handlers.getShoppingList();
+      const result = await handlers.getShoppingList({ shoppingListId: 1 });
 
       expect(result.isError).toBe(true);
     });
@@ -105,13 +121,15 @@ describe('ShoppingToolHandlers', () => {
 
   describe('addShoppingListItem', () => {
     it('should add shopping list item with all parameters', async () => {
-      const mockResponse = { id: 1, product_id: 1 };
+      const mockResponse = { id: 1, product_id: 1, shopping_list_id: 2 };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
+      const mockShoppingLists = [{ id: 2, name: 'Groceries' }];
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} });
 
       const result = await handlers.addShoppingListItem({
         productId: 1,
@@ -134,7 +152,6 @@ describe('ShoppingToolHandlers', () => {
       expect(result.content[0].text).toContain('Shopping list item added successfully');
       expect(result.structuredContent?.data).toEqual({
         id: 1,
-        product_id: 1,
         product: {
           id: 1,
           name: 'Milk',
@@ -145,17 +162,23 @@ describe('ShoppingToolHandlers', () => {
           id: 4,
           name: 'liters',
         },
+        shoppingList: {
+          id: 2,
+          name: 'Groceries',
+        },
       });
     });
 
     it('should add shopping list item with defaults', async () => {
-      const mockResponse = { id: 1, product_id: 1 };
+      const mockResponse = { id: 1, product_id: 1, shopping_list_id: 1 };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
+      const mockShoppingLists = [{ id: 1, name: 'Groceries' }];
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} });
 
       const result = await handlers.addShoppingListItem({
         productId: 1,
@@ -174,7 +197,6 @@ describe('ShoppingToolHandlers', () => {
       expect(result.isError).toBeUndefined();
       expect(result.structuredContent?.data).toEqual({
         id: 1,
-        product_id: 1,
         product: {
           id: 1,
           name: 'Milk',
@@ -184,6 +206,10 @@ describe('ShoppingToolHandlers', () => {
         quantityUnit: {
           id: 4,
           name: 'liters',
+        },
+        shoppingList: {
+          id: 1,
+          name: 'Groceries',
         },
       });
     });
@@ -251,6 +277,7 @@ describe('ShoppingToolHandlers', () => {
       };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
+      const mockShoppingLists = [{ id: 1, name: 'Groceries' }];
       const mockResponse = {
         id: 1,
         product_id: 1,
@@ -263,7 +290,8 @@ describe('ShoppingToolHandlers', () => {
         .mockResolvedValueOnce({ data: mockExistingItem, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockResponse, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
-        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockShoppingLists, status: 200, headers: {} });
 
       const result = await handlers.updateShoppingListItem({
         shoppingListItemId: 1,
@@ -291,9 +319,7 @@ describe('ShoppingToolHandlers', () => {
       expect(result.content[0].text).toContain('Shopping list item updated successfully');
       expect(result.structuredContent?.data).toEqual({
         id: 1,
-        product_id: 1,
         amount: 2,
-        shopping_list_id: 1,
         note: 'New note',
         product: {
           id: 1,
@@ -304,6 +330,10 @@ describe('ShoppingToolHandlers', () => {
         quantityUnit: {
           id: 4,
           name: 'liters',
+        },
+        shoppingList: {
+          id: 1,
+          name: 'Groceries',
         },
       });
     });
@@ -418,7 +448,7 @@ describe('ShoppingToolHandlers', () => {
 
       const result = await handlers.updateShoppingList({
         shoppingListId: 1,
-        description: 'New description',
+        manual_items: 'New description',
       });
 
       expect(mockApiClient.request).toHaveBeenNthCalledWith(1, '/objects/shopping_lists/1', {
