@@ -20,7 +20,7 @@
   "scripts": {
     "prebuild": "node scripts/build.js",
     "build": "tsc",
-    "prepare": "npm run build",
+    "prepare": "husky",
     "start": "node build/main.js",
     "dev": "npm run build && node build/main.js",
     "watch": "tsc --watch",
@@ -71,6 +71,8 @@
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "fs-extra": "^11.3.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
     "prettier": "^3.8.1",
     "semantic-release": "^25.0.3",
     "ts-node": "^10.9.1",
@@ -103,5 +105,14 @@
   },
   "config": {
     "supportedGrocyVersion": "4.5.0"
+  },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,yaml,yml,md}": [
+      "prettier --write"
+    ]
   }
 }
