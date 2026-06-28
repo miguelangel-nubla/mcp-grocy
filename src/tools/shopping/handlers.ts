@@ -2,6 +2,90 @@ import { BaseToolHandler } from '../base.js';
 import { ToolResult, ToolHandler } from '../types.js';
 
 export class ShoppingToolHandlers extends BaseToolHandler {
+  private async getResolvedShoppingMetadata(): Promise<{
+    productsById: Map<number, any>;
+    quantityUnitsById: Map<number, any>;
+  }> {
+    const [productsResponse, quantityUnitsResponse] = await Promise.all([
+      this.apiCall('/objects/products'),
+      this.apiCall('/objects/quantity_units'),
+    ]);
+
+    const products = Array.isArray(productsResponse) ? productsResponse : [];
+    const quantityUnits = Array.isArray(quantityUnitsResponse) ? quantityUnitsResponse : [];
+
+    return {
+      productsById: new Map(
+        products
+          .filter((product: any) => product && product.id !== undefined && product.id !== null)
+          .map((product: any) => [Number(product.id), product]),
+      ),
+      quantityUnitsById: new Map(
+        quantityUnits
+          .filter((unit: any) => unit && unit.id !== undefined && unit.id !== null)
+          .map((unit: any) => [Number(unit.id), unit]),
+      ),
+    };
+  }
+
+  private enrichShoppingListItem(
+    item: any,
+    productsById: Map<number, any>,
+    quantityUnitsById: Map<number, any>,
+  ) {
+    const productId =
+      item?.product_id !== undefined && item?.product_id !== null ? Number(item.product_id) : null;
+    const product = productId !== null ? productsById.get(productId) : undefined;
+    const quId =
+      item?.qu_id !== undefined && item?.qu_id !== null
+        ? Number(item.qu_id)
+        : product?.qu_id_stock !== undefined && product?.qu_id_stock !== null
+          ? Number(product.qu_id_stock)
+          : null;
+    const quantityUnit = quId !== null ? quantityUnitsById.get(quId) : undefined;
+
+    return {
+      ...item,
+      product: product
+        ? {
+            id: product.id,
+            name: product.name,
+            description: product.description ?? null,
+            quIdStock: product.qu_id_stock ?? null,
+          }
+        : null,
+      quantityUnit: quantityUnit
+        ? {
+            id: quantityUnit.id,
+            name: quantityUnit.name,
+          }
+        : null,
+    };
+  }
+
+  private async enrichShoppingListResponse(data: any): Promise<any> {
+    if (Array.isArray(data)) {
+      if (data.length === 0) {
+        return data;
+      }
+
+      const { productsById, quantityUnitsById } = await this.getResolvedShoppingMetadata();
+      return data.map((item) => this.enrichShoppingListItem(item, productsById, quantityUnitsById));
+    }
+
+    if (data && typeof data === 'object') {
+      const hasShoppingFields = 'product_id' in data || 'qu_id' in data;
+      if (!hasShoppingFields) {
+        return data;
+      }
+
+      const { productsById, quantityUnitsById } = await this.getResolvedShoppingMetadata();
+      return this.enrichShoppingListItem(data, productsById, quantityUnitsById);
+    }
+
+    return data;
+  }
+
   public getShoppingLists: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/shopping_lists');
@@ -19,7 +103,8 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       const result = await this.apiCall('/objects/shopping_list', 'GET', undefined, {
         queryParams,
       });
-      return this.createSuccess(result, 'Shopping list retrieved successfully');
+      const enriched = await this.enrichShoppingListResponse(result);
+      return this.createSuccess(enriched, 'Shopping list retrieved successfully');
     });
   };
 
@@ -58,7 +143,8 @@ export class ShoppingToolHandlers extends BaseToolHandler {
       };
 
       const result = await this.apiCall('/objects/shopping_list', 'POST', body);
-      return this.createSuccess(result, 'Shopping list item added successfully');
+      const enriched = await this.enrichShoppingListResponse(result);
+      return this.createSuccess(enriched, 'Shopping list item added successfully');
     });
   };
 
@@ -96,7 +182,8 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         'PUT',
         body,
       );
-      return this.createSuccess(result, 'Shopping list item updated successfully');
+      const enriched = await this.enrichShoppingListResponse(result);
+      return this.createSuccess(enriched, 'Shopping list item updated successfully');
     });
   };
 
