@@ -58,6 +58,38 @@ export const shoppingToolDefinitions = [
     },
   },
   {
+    name: 'shopping_list_update_item',
+    description:
+      '[SHOPPING/LIST] Update an item in your shopping list (e.g., to edit the note or amount). Use shopping_list_get first to find the shopping list item ID.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        shoppingListItemId: {
+          type: 'number',
+          description:
+            'ID of the shopping list item to update. Use shopping_list_get tool to find the correct shopping list item ID by looking at the "id" field in the results.',
+        },
+        productId: {
+          type: 'number',
+          description: 'Optional. Product ID if you want to change it.',
+        },
+        amount: {
+          type: 'number',
+          description: 'Optional. Amount to update to.',
+        },
+        shoppingListId: {
+          type: 'number',
+          description: 'Optional. Shopping list ID if you want to move it.',
+        },
+        note: {
+          type: 'string',
+          description: 'Optional. Note for the shopping list item. Use this to add or edit notes.',
+        },
+      },
+      required: ['shoppingListItemId'],
+    },
+  },
+  {
     name: 'shopping_locations_get',
     description:
       '[SHOPPING/LOCATIONS] Get **retail store / shop** locations where you buy groceries (Grocy shopping locations). NOT pantry or home storage—use system_locations_get for storage location IDs (locationId). Use shopping_locations_get for storeId when adding shopping-list items or store-specific workflows.',

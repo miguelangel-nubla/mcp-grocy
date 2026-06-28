@@ -9,6 +9,7 @@ export const shoppingModule: ToolModule = {
   handlers: {
     shopping_list_get: handlers.getShoppingList,
     shopping_list_add_item: handlers.addShoppingListItem,
+    shopping_list_update_item: handlers.updateShoppingListItem,
     shopping_list_remove_item: handlers.removeShoppingListItem,
     shopping_locations_get: handlers.getShoppingLocations,
     shopping_list_print_thermal: handlers.printShoppingListThermal,

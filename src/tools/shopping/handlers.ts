@@ -36,6 +36,30 @@ export class ShoppingToolHandlers extends BaseToolHandler {
     });
   };
 
+  public updateShoppingListItem: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { shoppingListItemId, productId, amount, shoppingListId, note } = args || {};
+      this.validateRequired({ shoppingListItemId }, ['shoppingListItemId']);
+
+      const existingItem = await this.apiCall(`/objects/shopping_list/${shoppingListItemId}`);
+      if (!existingItem) {
+        throw new Error(`Shopping list item ${shoppingListItemId} not found`);
+      }
+
+      const body = {
+        ...existingItem,
+      };
+
+      if (productId !== undefined) body.product_id = productId;
+      if (amount !== undefined) body.amount = amount;
+      if (shoppingListId !== undefined) body.shopping_list_id = shoppingListId;
+      if (note !== undefined) body.note = note;
+
+      const result = await this.apiCall(`/objects/shopping_list/${shoppingListItemId}`, 'PUT', body);
+      return this.createSuccess(result, 'Shopping list item updated successfully');
+    });
+  };
+
   public getShoppingLocations: ToolHandler = async (): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const result = await this.apiCall('/objects/shopping_locations');

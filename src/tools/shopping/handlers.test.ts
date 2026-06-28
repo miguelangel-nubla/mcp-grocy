@@ -169,6 +169,55 @@ describe('ShoppingToolHandlers', () => {
     });
   });
 
+  describe('updateShoppingListItem', () => {
+    it('should update shopping list item', async () => {
+      const mockExistingItem = { id: 1, product_id: 1, amount: 2, shopping_list_id: 1, note: 'Old note' };
+      const mockResponse = { id: 1, product_id: 1, amount: 2, shopping_list_id: 1, note: 'New note' };
+      
+      mockApiClient.request.mockResolvedValueOnce({
+        data: mockExistingItem,
+        status: 200,
+        headers: {},
+      }).mockResolvedValueOnce({
+        data: mockResponse,
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.updateShoppingListItem({
+        shoppingListItemId: 1,
+        note: 'New note',
+      });
+
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(1, '/objects/shopping_list/1', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {},
+      });
+      
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(2, '/objects/shopping_list/1', {
+        method: 'PUT',
+        body: {
+          id: 1,
+          product_id: 1,
+          amount: 2,
+          shopping_list_id: 1,
+          note: 'New note',
+        },
+        queryParams: {},
+      });
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain('Shopping list item updated successfully');
+    });
+
+    it('should require shoppingListItemId parameter', async () => {
+      const result = await handlers.updateShoppingListItem({});
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters: shoppingListItemId');
+    });
+  });
+
   describe('getShoppingLocations', () => {
     it('should get shopping locations', async () => {
       const mockLocations = [
