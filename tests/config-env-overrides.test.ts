@@ -277,6 +277,43 @@ tools:
     });
   });
 
+  describe('MCP session reaper overrides', () => {
+    it('should override idle timeout when env var provided', () => {
+      process.env.MCP_SESSION_IDLE_TIMEOUT_MS = '600000';
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
+      const { yaml } = config.getConfig();
+
+      expect(yaml.server.session_idle_timeout_ms).toBe(600000);
+    });
+
+    it('should override sweep interval when env var provided', () => {
+      process.env.MCP_SESSION_SWEEP_INTERVAL_MS = '30000';
+
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
+      const { yaml } = config.getConfig();
+
+      expect(yaml.server.session_sweep_interval_ms).toBe(30000);
+    });
+
+    it('should fall back to defaults when env vars not set', () => {
+      const config = (() => {
+        const ConfigManagerClass = ConfigManager as any;
+        return new ConfigManagerClass(tempConfigPath);
+      })();
+      const { yaml } = config.getConfig();
+
+      expect(yaml.server.session_idle_timeout_ms).toBe(300000);
+      expect(yaml.server.session_sweep_interval_ms).toBe(60000);
+    });
+  });
+
   describe('Multiple environment variable overrides', () => {
     it('should apply all environment variable overrides correctly', () => {
       process.env.GROCY_BASE_URL = 'https://multi-test.example.com';

@@ -258,12 +258,20 @@ export class GrocyMcpServer {
       try {
         logger.config(`Starting HTTP server on port ${config.server.http_server_port}`);
         const serverFactory = () => this.createMcpServer();
-        await startHttpServer(serverFactory, config.server.http_server_port, {
-          corsOrigin: config.server.http_cors_origin,
-          ...(config.server.http_access_token !== undefined && {
-            accessToken: config.server.http_access_token,
-          }),
-        });
+        await startHttpServer(
+          serverFactory,
+          config.server.http_server_port,
+          {
+            corsOrigin: config.server.http_cors_origin,
+            ...(config.server.http_access_token !== undefined && {
+              accessToken: config.server.http_access_token,
+            }),
+          },
+          {
+            idleTimeoutMs: config.server.session_idle_timeout_ms,
+            sweepIntervalMs: config.server.session_sweep_interval_ms,
+          },
+        );
       } catch (error) {
         logger.error('Failed to start HTTP server', 'SERVER', { error });
         logger.error('HTTP server is explicitly enabled but cannot start - exiting', 'SERVER');

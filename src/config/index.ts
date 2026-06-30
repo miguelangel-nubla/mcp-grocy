@@ -29,6 +29,8 @@ const EnvironmentSchema = z.object({
   HTTP_SERVER_PORT: z.string().regex(/^\d+$/).optional(),
   HTTP_CORS_ORIGIN: z.string().optional(),
   MCP_HTTP_ACCESS_TOKEN: z.string().optional(),
+  MCP_SESSION_IDLE_TIMEOUT_MS: z.string().regex(/^\d+$/).optional(),
+  MCP_SESSION_SWEEP_INTERVAL_MS: z.string().regex(/^\d+$/).optional(),
 
   // Logging Configuration
   LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional(),
@@ -50,12 +52,18 @@ const YamlConfigSchema = z
         http_cors_origin: z.string().min(1).default('*'),
         /** When set, MCP HTTP/SSE routes require `Authorization: Bearer <token>`, `X-MCP-Access-Token`, or `access_token` query (GET only). */
         http_access_token: z.string().optional(),
+        /** Reap an idle streamable-HTTP MCP session after this many ms with no requests. Bounds memory when clients reconnect without sending `DELETE /mcp`. */
+        session_idle_timeout_ms: z.number().int().positive().default(300_000),
+        /** How often, in ms, to sweep for idle MCP sessions to reap. */
+        session_sweep_interval_ms: z.number().int().positive().default(60_000),
       })
       .strict()
       .default({
         enable_http_server: false,
         http_server_port: 8080,
         http_cors_origin: '*',
+        session_idle_timeout_ms: 300_000,
+        session_sweep_interval_ms: 60_000,
       }),
 
     grocy: z
@@ -115,6 +123,8 @@ export class ConfigManager {
     http_server_port: number;
     http_cors_origin: string;
     http_access_token?: string;
+    session_idle_timeout_ms: number;
+    session_sweep_interval_ms: number;
   };
 
   public readonly tools: Record<string, any>;
@@ -137,6 +147,8 @@ export class ConfigManager {
       enable_http_server: this.config.yaml.server.enable_http_server,
       http_server_port: this.config.yaml.server.http_server_port,
       http_cors_origin: this.config.yaml.server.http_cors_origin,
+      session_idle_timeout_ms: this.config.yaml.server.session_idle_timeout_ms,
+      session_sweep_interval_ms: this.config.yaml.server.session_sweep_interval_ms,
       ...(this.config.yaml.server.http_access_token !== undefined &&
         this.config.yaml.server.http_access_token !== '' && {
           http_access_token: this.config.yaml.server.http_access_token,
@@ -287,6 +299,14 @@ export class ConfigManager {
     if (env.MCP_HTTP_ACCESS_TOKEN !== undefined) {
       yaml.server.http_access_token =
         env.MCP_HTTP_ACCESS_TOKEN.length > 0 ? env.MCP_HTTP_ACCESS_TOKEN : undefined;
+    }
+
+    if (env.MCP_SESSION_IDLE_TIMEOUT_MS !== undefined) {
+      yaml.server.session_idle_timeout_ms = parseInt(env.MCP_SESSION_IDLE_TIMEOUT_MS, 10);
+    }
+
+    if (env.MCP_SESSION_SWEEP_INTERVAL_MS !== undefined) {
+      yaml.server.session_sweep_interval_ms = parseInt(env.MCP_SESSION_SWEEP_INTERVAL_MS, 10);
     }
   }
 

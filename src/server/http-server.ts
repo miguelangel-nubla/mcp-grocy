@@ -17,6 +17,23 @@ export interface HttpServerSecurityOptions {
   accessToken?: string;
 }
 
+export interface McpSessionOptions {
+  /**
+   * Reap a streamable-HTTP session after this many ms with no requests. Guards
+   * against clients that reconnect (re-`initialize`) without ever sending
+   * `DELETE /mcp`, which would otherwise leak a transport + McpServer per
+   * reconnect. Default: 5 minutes.
+   */
+  idleTimeoutMs?: number;
+  /** How often, in ms, to sweep for idle sessions. Default: 60 seconds. */
+  sweepIntervalMs?: number;
+}
+
+/** Default idle window before an abandoned streamable session is reaped. */
+const DEFAULT_SESSION_IDLE_TIMEOUT_MS = 5 * 60_000;
+/** Default interval between idle-session sweeps. */
+const DEFAULT_SESSION_SWEEP_INTERVAL_MS = 60_000;
+
 /** Constant-time string comparison to prevent timing attacks on token validation. */
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -68,6 +85,7 @@ export function startHttpServer(
   mcpServer: McpServer | (() => McpServer),
   port: number = 8080,
   security: HttpServerSecurityOptions,
+  sessionOptions: McpSessionOptions = {},
 ): Promise<http.Server> {
   return new Promise((resolve, reject) => {
     const app = express();
@@ -136,8 +154,38 @@ export function startHttpServer(
 
     // Session management for transports
     const streamableTransports: Record<string, StreamableHTTPServerTransport> = {};
+    const streamableServers: Record<string, McpServer> = {};
+    const streamableLastActivity: Record<string, number> = {};
     const sseTransports: Record<string, SSEServerTransport> = {};
     const sseServerInstances: Record<string, McpServer> = {};
+
+    const idleTimeoutMs = sessionOptions.idleTimeoutMs ?? DEFAULT_SESSION_IDLE_TIMEOUT_MS;
+    const sweepIntervalMs = sessionOptions.sweepIntervalMs ?? DEFAULT_SESSION_SWEEP_INTERVAL_MS;
+
+    // Close and forget a streamable session, freeing both its transport and the
+    // per-session McpServer (52 tools + 3 resources). Idempotent and re-entry
+    // safe: the map entries are removed first, so the transport's own `onclose`
+    // (which calls back here) short-circuits on the next entry.
+    const closeStreamableSession = (sessionId: string): void => {
+      const transport = streamableTransports[sessionId];
+      if (!transport) {
+        return;
+      }
+      delete streamableTransports[sessionId];
+      delete streamableLastActivity[sessionId];
+      const serverInstance = streamableServers[sessionId];
+      delete streamableServers[sessionId];
+      try {
+        void transport.close?.();
+      } catch {
+        /* already closed */
+      }
+      try {
+        void serverInstance?.close?.();
+      } catch {
+        /* already closed */
+      }
+    };
 
     // Simplified request logging
     app.use((req, _res, next) => {
@@ -188,6 +236,8 @@ export function startHttpServer(
             });
             return;
           }
+          // Mark activity so the idle reaper keeps live sessions alive.
+          streamableLastActivity[clientSessionId] = Date.now();
         } else if (isInitializeRequest) {
           // POST initialize: create new transport and session
           if (clientSessionId) {
@@ -195,12 +245,8 @@ export function startHttpServer(
               `Initialize request included prior session ID ${clientSessionId} (non-graceful reconnect), starting fresh session`,
               'server',
             );
-            // Clean up the stale transport to prevent memory leaks
-            const staleTransport = streamableTransports[clientSessionId];
-            if (staleTransport) {
-              delete streamableTransports[clientSessionId];
-              staleTransport.close?.().catch(() => {});
-            }
+            // Clean up the stale transport + server to prevent memory leaks
+            closeStreamableSession(clientSessionId);
           }
           const newGeneratedSessionId = randomUUID();
 
@@ -211,14 +257,23 @@ export function startHttpServer(
 
           transport = newTransportInstance;
           streamableTransports[newGeneratedSessionId] = transport;
-
-          transport.onclose = () => {
-            const closedSessionId = transport?.sessionId || newGeneratedSessionId;
-            delete streamableTransports[closedSessionId];
-          };
+          streamableLastActivity[newGeneratedSessionId] = Date.now();
 
           const serverInstance = getServerInstance();
+          streamableServers[newGeneratedSessionId] = serverInstance;
           await serverInstance.connect(transport as Transport);
+
+          // McpServer.connect() installs its own transport.onclose; wrap it so we
+          // also evict the session from our maps and close the server whenever the
+          // transport goes away (explicit DELETE, client disconnect, or idle reap).
+          const sdkOnClose = transport.onclose;
+          transport.onclose = () => {
+            try {
+              sdkOnClose?.();
+            } finally {
+              closeStreamableSession(newGeneratedSessionId);
+            }
+          };
         } else {
           // Non-initialize request without a session ID (e.g. GET SSE before session established)
           // Return 405 so clients that probe for SSE support handle it gracefully
@@ -290,7 +345,13 @@ export function startHttpServer(
         // Handle connection cleanup
         const cleanup = () => {
           delete sseTransports[sessionId];
+          const isolated = sseServerInstances[sessionId];
           delete sseServerInstances[sessionId];
+          try {
+            void isolated?.close?.();
+          } catch {
+            /* already closed */
+          }
         };
 
         res.on('close', cleanup);
@@ -373,6 +434,28 @@ export function startHttpServer(
 
     // Create HTTP server with explicit error handling
     const server = http.createServer(app);
+
+    // Idle-session reaper: abandoned streamable sessions (clients that reconnect
+    // without sending DELETE) are closed once they exceed the idle window, so
+    // their transports + McpServers can be garbage collected instead of growing
+    // without bound.
+    const reaper = setInterval(() => {
+      const now = Date.now();
+      for (const sessionId of Object.keys(streamableTransports)) {
+        const last = streamableLastActivity[sessionId] ?? 0;
+        if (now - last > idleTimeoutMs) {
+          logger.info(`Reaping idle MCP session ${sessionId} (idle ${now - last}ms)`, 'server');
+          closeStreamableSession(sessionId);
+        }
+      }
+    }, sweepIntervalMs);
+    // Don't let the sweep timer keep the process (or test runner) alive.
+    reaper.unref?.();
+    server.on('close', () => clearInterval(reaper));
+
+    // Expose the live session count for observability and tests.
+    (server as http.Server & { getMcpSessionCount?: () => number }).getMcpSessionCount = () =>
+      Object.keys(streamableTransports).length + Object.keys(sseTransports).length;
 
     server.on('error', (error) => {
       logger.error(`HTTP server error: ${error.message}`, 'server');

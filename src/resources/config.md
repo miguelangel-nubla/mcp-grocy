@@ -22,16 +22,31 @@ Advanced configuration reference for the **mcp-grocy** npm package (this MCP ser
 
 Enable HTTP/SSE transport for web-based access:
 
-| Variable             | Description               | Default | Example |
-| -------------------- | ------------------------- | ------- | ------- |
-| `ENABLE_HTTP_SERVER` | Enable HTTP/SSE transport | `false` | `true`  |
-| `HTTP_SERVER_PORT`   | HTTP server port          | `8080`  | `3000`  |
+| Variable                        | Description                                          | Default  | Example  |
+| ------------------------------- | ---------------------------------------------------- | -------- | -------- |
+| `ENABLE_HTTP_SERVER`            | Enable HTTP/SSE transport                            | `false`  | `true`   |
+| `HTTP_SERVER_PORT`              | HTTP server port                                     | `8080`   | `3000`   |
+| `MCP_SESSION_IDLE_TIMEOUT_MS`   | Reap an idle MCP session after this many ms          | `300000` | `600000` |
+| `MCP_SESSION_SWEEP_INTERVAL_MS` | How often, in ms, to sweep for idle sessions to reap | `60000`  | `30000`  |
+
+The matching YAML keys are `server.session_idle_timeout_ms` and `server.session_sweep_interval_ms`.
 
 ### Transport Modes
 
 - **stdio** (default) - Standard MCP protocol for CLI/desktop clients
 - **HTTP** - Streamable HTTP for web applications (`POST /mcp`)
 - **SSE** - Server-Sent Events for real-time web clients (`GET /mcp/sse`)
+
+### Session Reaping (HTTP mode)
+
+In HTTP mode the server keeps a transport and per-session MCP server instance for
+each session. Clients that disconnect without sending `DELETE /mcp`, or that
+reconnect with a new session id, would otherwise leave those instances in memory.
+The server reaps any session with no requests for `MCP_SESSION_IDLE_TIMEOUT_MS`,
+freeing its resources. A reaped client transparently re-initializes on its next
+request, so the default of 5 minutes is safe for normal use; lower it on
+memory-constrained hosts or raise it if a client legitimately idles for long
+periods between calls.
 
 ## 🛠️ Tool Configuration
 

@@ -11,6 +11,11 @@ server:
   http_cors_origin: "*"
   # Optional: require token on /mcp, /mcp/sse, /mcp/messages (see MCP_HTTP_ACCESS_TOKEN)
   # http_access_token: "your-secret-token"
+  # Reap an idle MCP session after this many ms with no requests (default 300000 = 5 min).
+  # Prevents per-reconnect memory growth when clients don't send DELETE /mcp.
+  # session_idle_timeout_ms: 300000
+  # How often, in ms, to sweep for idle MCP sessions to reap (default 60000 = 60 s)
+  # session_sweep_interval_ms: 60000
 
 # Grocy API Configuration
 grocy:

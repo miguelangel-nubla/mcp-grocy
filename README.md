@@ -228,6 +228,19 @@ npm start
 - Increase `REST_RESPONSE_SIZE_LIMIT` if you have many products/stock entries
 - Consider disabling unused tools in `mcp-grocy.yaml`
 
+**High memory usage / RAM grows over time (HTTP mode)**
+
+- In HTTP mode the server automatically reaps idle MCP sessions (by default, after
+  5 minutes with no requests), so clients that disconnect without `DELETE /mcp` —
+  or that repeatedly reconnect with a new session — no longer leak per-session
+  server instances. No action is required.
+- Tune via `MCP_SESSION_IDLE_TIMEOUT_MS` / `MCP_SESSION_SWEEP_INTERVAL_MS` (or the
+  `server.session_idle_timeout_ms` / `server.session_sweep_interval_ms` YAML keys):
+  lower the timeout on memory-constrained hosts, raise it if a client legitimately
+  idles for long periods between calls.
+- For the lowest overhead, prefer an MCP client that reuses its `Mcp-Session-Id`
+  across requests and sends `DELETE /mcp` when it disconnects.
+
 #### Debug Mode
 
 Enable detailed logging and use the MCP inspector:
