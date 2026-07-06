@@ -1,3 +1,19 @@
+# [2.6.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.5.0...v2.6.0) (2026-07-06)
+
+### Bug Fixes
+
+- reap idle streamable HTTP sessions to prevent McpServer leak ([c55b2c4](https://github.com/miguelangel-nubla/mcp-grocy/commit/c55b2c4808dac4ac5f0c55a45936c8f995d5efc3))
+
+### Features
+
+- add shopping_list_update_item tool to allow modifying list items ([dcbc974](https://github.com/miguelangel-nubla/mcp-grocy/commit/dcbc9746630667bbe89330bab7f7e9f84a3f060f))
+- add shopping*lists*\* configurations to example yaml ([204f03d](https://github.com/miguelangel-nubla/mcp-grocy/commit/204f03dca8c9ca17f3cfc476274f0a5b844912c7))
+- configure husky git hooks ([c8ac158](https://github.com/miguelangel-nubla/mcp-grocy/commit/c8ac1582f477c6dc074166b5a9753a06608c8007))
+- enhance shopping list tools with manual item support and enriched metadata resolution ([a1a8ce3](https://github.com/miguelangel-nubla/mcp-grocy/commit/a1a8ce341b61e5b24a366ae74a95a2c92e93e07c))
+- enrich shopping list tool responses with product and quantity unit details ([56bd553](https://github.com/miguelangel-nubla/mcp-grocy/commit/56bd553e17d913db1f2c61fc963a900f6477f45f))
+- expand shopping module with get, update, and filtered list capabilities ([d7e0e5d](https://github.com/miguelangel-nubla/mcp-grocy/commit/d7e0e5d94962c1b4daf0835a91fc275c25188673))
+- make productId optional in shopping list add tool ([a427e18](https://github.com/miguelangel-nubla/mcp-grocy/commit/a427e1832a9b70e579dae062c7665ec472656359))
+
 # [2.5.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.4.4...v2.5.0) (2026-03-30)
 
 ### Bug Fixes
