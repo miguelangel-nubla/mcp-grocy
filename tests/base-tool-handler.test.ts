@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BaseToolHandler } from '../src/tools/base.js';
 import { ApiError } from '../src/api/client.js';
+import { config } from '../src/config/index.js';
 
 // Mock API client
 vi.mock('../src/api/client.js', () => ({
@@ -24,8 +25,8 @@ class TestToolHandler extends BaseToolHandler {
     return this.safeStringify(data);
   }
 
-  public testCreateSuccess(data: any, message?: string) {
-    return this.createSuccess(data, message);
+  public testCreateSuccess(data: any, message?: string, options?: any) {
+    return this.createSuccess(data, message, options);
   }
 
   public testCreateError(error: string, context?: any) {
@@ -89,7 +90,7 @@ describe('BaseToolHandler', () => {
   });
 
   describe('createSuccess', () => {
-    it('should create success result with correct format', () => {
+    it('should create success result with short status by default (not serialized)', () => {
       const data = { success: true, data: 'test' };
       const result = handler.testCreateSuccess(data);
 
@@ -106,20 +107,7 @@ describe('BaseToolHandler', () => {
       });
     });
 
-    it('should handle complex data structures', () => {
-      const data = {
-        array: [1, 2, 3],
-        nested: { deep: { value: 'test' } },
-        boolean: true,
-      };
-      const result = handler.testCreateSuccess(data);
-
-      expect(result.content[0].type).toBe('text');
-      expect(result.content).toHaveLength(1);
-      expect(result.structuredContent).toEqual({ data });
-    });
-
-    it('should include custom message when provided', () => {
+    it('should use custom message by default when provided', () => {
       const data = { test: 'value' };
       const message = 'Custom success message';
       const result = handler.testCreateSuccess(data, message);
@@ -127,6 +115,34 @@ describe('BaseToolHandler', () => {
       expect(result.content[0].text).toBe(message);
       expect(result.content).toHaveLength(1);
       expect(result.structuredContent).toEqual({ data });
+    });
+
+    it('should serialize JSON to content when serialize_structured_to_content setting is enabled', () => {
+      const data = {
+        array: [1, 2, 3],
+        nested: { deep: { value: 'test' } },
+        boolean: true,
+      };
+      (config.server as any).serialize_structured_to_content = true;
+      try {
+        const result = handler.testCreateSuccess(data);
+        expect(result.content[0].type).toBe('text');
+        expect(result.content[0].text).toBe(JSON.stringify(data, null, 2));
+        expect(result.content).toHaveLength(1);
+        expect(result.structuredContent).toEqual({ data });
+      } finally {
+        (config.server as any).serialize_structured_to_content = false;
+      }
+    });
+
+    it('should fall back to message or default text when data is null or undefined', () => {
+      const resultNull = handler.testCreateSuccess(null, 'Custom success message');
+      expect(resultNull.content[0].text).toBe('Custom success message');
+      expect(resultNull.structuredContent).toEqual({ data: null });
+
+      const resultUndefined = handler.testCreateSuccess(undefined);
+      expect(resultUndefined.content[0].text).toBe('Operation completed successfully');
+      expect(resultUndefined.structuredContent).toEqual({ data: null });
     });
   });
 

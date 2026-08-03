@@ -16,6 +16,8 @@ server:
   # session_idle_timeout_ms: 300000
   # How often, in ms, to sweep for idle MCP sessions to reap (default 60000 = 60 s)
   # session_sweep_interval_ms: 60000
+  # Also serialize structured JSON data into content text block for legacy MCP clients (default false)
+  # serialize_structured_to_content: false
 
 # Grocy API Configuration
 grocy:

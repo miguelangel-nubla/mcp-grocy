@@ -4,6 +4,7 @@
 
 import { ToolResult } from './types.js';
 import apiClient from '../api/client.js';
+import { config } from '../config/index.js';
 import { ErrorHandler, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
@@ -12,11 +13,25 @@ export abstract class BaseToolHandler {
    * Create a standardized success result
    */
   protected createSuccess(data: any, message?: string): ToolResult {
+    let serializeStructured = false;
+    try {
+      serializeStructured = config?.server?.serialize_structured_to_content ?? false;
+    } catch {
+      serializeStructured = false;
+    }
+
+    const textContent =
+      serializeStructured && data !== undefined && data !== null
+        ? message
+          ? `${message}\n${this.safeStringify(data)}`
+          : this.safeStringify(data)
+        : message || 'Operation completed successfully';
+
     return {
       content: [
         {
           type: 'text' as const,
-          text: message || 'Operation completed successfully',
+          text: textContent,
         },
       ],
       structuredContent: {

@@ -29,7 +29,9 @@ Enable HTTP/SSE transport for web-based access:
 | `MCP_SESSION_IDLE_TIMEOUT_MS`   | Reap an idle MCP session after this many ms          | `300000` | `600000` |
 | `MCP_SESSION_SWEEP_INTERVAL_MS` | How often, in ms, to sweep for idle sessions to reap | `60000`  | `30000`  |
 
-The matching YAML keys are `server.session_idle_timeout_ms` and `server.session_sweep_interval_ms`.
+| `SERIALIZE_STRUCTURED_TO_CONTENT` | Also serialize structured JSON into content text blocks | `false` | `true` |
+
+The matching YAML key is `server.serialize_structured_to_content`.
 
 ### Transport Modes
 

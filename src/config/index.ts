@@ -31,6 +31,7 @@ const EnvironmentSchema = z.object({
   MCP_HTTP_ACCESS_TOKEN: z.string().optional(),
   MCP_SESSION_IDLE_TIMEOUT_MS: z.string().regex(/^\d+$/).optional(),
   MCP_SESSION_SWEEP_INTERVAL_MS: z.string().regex(/^\d+$/).optional(),
+  SERIALIZE_STRUCTURED_TO_CONTENT: z.enum(['true', 'false']).optional(),
 
   // Logging Configuration
   LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional(),
@@ -56,6 +57,8 @@ const YamlConfigSchema = z
         session_idle_timeout_ms: z.number().int().positive().default(300_000),
         /** How often, in ms, to sweep for idle MCP sessions to reap. */
         session_sweep_interval_ms: z.number().int().positive().default(60_000),
+        /** When true, tools also serialize structured JSON payload into the content text block for backwards-compatible MCP clients. Default: false. */
+        serialize_structured_to_content: z.boolean().default(false),
       })
       .strict()
       .default({
@@ -64,6 +67,7 @@ const YamlConfigSchema = z
         http_cors_origin: '*',
         session_idle_timeout_ms: 300_000,
         session_sweep_interval_ms: 60_000,
+        serialize_structured_to_content: false,
       }),
 
     grocy: z
@@ -125,6 +129,7 @@ export class ConfigManager {
     http_access_token?: string;
     session_idle_timeout_ms: number;
     session_sweep_interval_ms: number;
+    serialize_structured_to_content: boolean;
   };
 
   public readonly tools: Record<string, any>;
@@ -149,6 +154,7 @@ export class ConfigManager {
       http_cors_origin: this.config.yaml.server.http_cors_origin,
       session_idle_timeout_ms: this.config.yaml.server.session_idle_timeout_ms,
       session_sweep_interval_ms: this.config.yaml.server.session_sweep_interval_ms,
+      serialize_structured_to_content: this.config.yaml.server.serialize_structured_to_content,
       ...(this.config.yaml.server.http_access_token !== undefined &&
         this.config.yaml.server.http_access_token !== '' && {
           http_access_token: this.config.yaml.server.http_access_token,
@@ -307,6 +313,10 @@ export class ConfigManager {
 
     if (env.MCP_SESSION_SWEEP_INTERVAL_MS !== undefined) {
       yaml.server.session_sweep_interval_ms = parseInt(env.MCP_SESSION_SWEEP_INTERVAL_MS, 10);
+    }
+
+    if (env.SERIALIZE_STRUCTURED_TO_CONTENT !== undefined) {
+      yaml.server.serialize_structured_to_content = env.SERIALIZE_STRUCTURED_TO_CONTENT === 'true';
     }
   }
 
