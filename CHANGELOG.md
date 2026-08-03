@@ -1,3 +1,13 @@
+# [2.7.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.6.0...v2.7.0) (2026-08-03)
+
+### Bug Fixes
+
+- **server:** fix strict null check in invokeTool and add pre-commit type-check ([affc8d0](https://github.com/miguelangel-nubla/mcp-grocy/commit/affc8d0015343e26fff4cf2b2abdf21c2c4a967a))
+
+### Features
+
+- add serialize_structured_to_content configuration to improve compatibility with legacy clients ([4371c18](https://github.com/miguelangel-nubla/mcp-grocy/commit/4371c18bd2b9038ab68c79403cd0e5f47619c23b))
+
 # [2.6.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.5.0...v2.6.0) (2026-07-06)
 
 ### Bug Fixes
