@@ -196,10 +196,11 @@ export class GrocyMcpServer {
           result.structuredContent?.data !== null
         ) {
           const dataJson = JSON.stringify(result.structuredContent.data, null, 2);
-          if (result.content.length > 0 && result.content[0].type === 'text') {
-            const currentText = result.content[0].text;
+          const firstBlock = result.content[0];
+          if (firstBlock && firstBlock.type === 'text') {
+            const currentText = firstBlock.text;
             if (!currentText.includes(dataJson)) {
-              result.content[0].text =
+              firstBlock.text =
                 currentText && currentText !== 'Operation completed successfully'
                   ? `${currentText}\n${dataJson}`
                   : dataJson;
