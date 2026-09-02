@@ -528,6 +528,19 @@ export class RecipeToolHandlers extends BaseToolHandler {
           );
         }
 
+        // Only recipe-typed entries are handled here; check before any write so a note, a
+        // product entry or an entry with an unrecognised type is never marked as done.
+        if (mealPlanEntry.type !== 'recipe' || mealPlanEntry.recipe_id == null) {
+          const hasRecipe = mealPlanEntry.recipe_id != null;
+          const reason = hasRecipe
+            ? 'it was stored with an unrecognised type, so Grocy created no shadow recipe for it; delete it with recipes_mealplan_delete_entry and plan it again'
+            : 'note entries have nothing to consume and product entries are not supported by this tool';
+          throw new ValidationError(
+            `Meal plan entry ${mealPlanEntryId} cannot be cooked (type '${mealPlanEntry.type ?? 'unknown'}'${hasRecipe ? '' : ', no recipe_id'}): only entries with type 'recipe' are handled; ${reason}.`,
+            'recipes_cooking_complete',
+          );
+        }
+
         if (mealPlanEntry.done == 1 && !allowMealPlanEntryAlreadyDone) {
           throw new ValidationError(
             `Meal plan entry ${mealPlanEntryId} is already marked as done. Cannot mark as cooked again.`,
