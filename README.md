@@ -54,7 +54,7 @@ Transform your LLM into an intelligent household management assistant with focus
 ### 🛒 **Smart Shopping & Planning**
 
 - Maintain shopping lists with intelligent quantity management
-- Plan meals with recipe scheduling and fulfillment checking
+- Plan meals with recipe scheduling, free-text notes per meal plan section, and fulfillment checking
 - Automatically add missing ingredients to shopping lists
 - Track shopping locations and optimize store visits
 
