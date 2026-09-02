@@ -347,26 +347,29 @@ describe('RecipeToolHandlers', () => {
   });
 
   describe('addRecipeToMealPlan', () => {
-    it('should add recipe to meal plan', async () => {
-      const mockResponse = { id: 1 };
+    it('should add recipe to meal plan with type, servings and section', async () => {
+      const mockResponse = { created_object_id: '1' };
       mockApiClient.request.mockResolvedValue({
         data: mockResponse,
-        status: 201,
+        status: 200,
         headers: {},
       });
 
       const result = await handlers.addRecipeToMealPlan({
-        recipeId: 1,
+        recipeId: 5,
         day: '2024-01-15',
-        mealType: 'dinner',
+        servings: 2,
+        sectionId: 3,
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
         method: 'POST',
         body: {
           day: '2024-01-15',
-          type: 'dinner',
-          recipe_id: 1,
+          type: 'recipe',
+          recipe_id: 5,
+          recipe_servings: 2,
+          section_id: 3,
         },
         queryParams: {},
       });
@@ -374,36 +377,109 @@ describe('RecipeToolHandlers', () => {
       expect(result.content[0].text).toContain('Recipe added to meal plan successfully');
     });
 
-    it('should require recipeId and day parameters', async () => {
-      const result = await handlers.addRecipeToMealPlan({});
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Missing required parameters: recipeId, day');
-    });
-
-    it('should use default meal type', async () => {
-      const mockResponse = { id: 1 };
-      mockApiClient.request.mockResolvedValue({
-        data: mockResponse,
-        status: 201,
-        headers: {},
-      });
+    it('should accept -1 as the explicit "no section" value', async () => {
+      mockApiClient.request.mockResolvedValue({ data: {}, status: 200, headers: {} });
 
       const result = await handlers.addRecipeToMealPlan({
-        recipeId: 1,
+        recipeId: 5,
         day: '2024-01-15',
+        servings: 1,
+        sectionId: -1,
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
         method: 'POST',
         body: {
           day: '2024-01-15',
-          type: 'lunch',
-          recipe_id: 1,
+          type: 'recipe',
+          recipe_id: 5,
+          recipe_servings: 1,
+          section_id: -1,
         },
         queryParams: {},
       });
       expect(result.isError).toBeUndefined();
+    });
+
+    it('should require recipeId, day, servings and sectionId parameters', async () => {
+      const result = await handlers.addRecipeToMealPlan({});
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(
+        'Missing required parameters: recipeId, day, servings, sectionId',
+      );
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject an invalid day format', async () => {
+      const result = await handlers.addRecipeToMealPlan({
+        recipeId: 5,
+        day: '15/01/2024',
+        servings: 2,
+        sectionId: 3,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('day must be a valid calendar date');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject an impossible calendar date', async () => {
+      for (const day of ['2024-02-30', '2024-13-45']) {
+        const result = await handlers.addRecipeToMealPlan({
+          recipeId: 5,
+          day,
+          servings: 2,
+          sectionId: 3,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('day must be a valid calendar date');
+      }
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject non-positive servings', async () => {
+      const result = await handlers.addRecipeToMealPlan({
+        recipeId: 5,
+        day: '2024-01-15',
+        servings: 0,
+        sectionId: 3,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('servings must be a positive number');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject section ids that cannot exist in Grocy (0, negative, fractional)', async () => {
+      for (const sectionId of [0, -2, 1.5]) {
+        const result = await handlers.addRecipeToMealPlan({
+          recipeId: 5,
+          day: '2024-01-15',
+          servings: 2,
+          sectionId,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain(
+          'sectionId must be a section id from recipes_mealplan_get_sections, or -1 for no section',
+        );
+      }
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject a non-numeric sectionId', async () => {
+      const result = await handlers.addRecipeToMealPlan({
+        recipeId: 5,
+        day: '2024-01-15',
+        servings: 2,
+        sectionId: 'dinner',
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('sectionId must be a valid number');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
     });
   });
 
