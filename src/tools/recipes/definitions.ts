@@ -136,7 +136,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_mealplan_get',
     description:
-      '[RECIPES/MEALPLAN] Get your meal plan data from Grocy instance with corresponding recipe details. Returns planned meals for the requested date plus surrounding days for context. Use this to find out what recipes/meals are planned for a specific date (e.g., "what\'s for dinner tomorrow", "recipes for today", "meal plan for next week"). The returned data includes the id field (meal plan entry ID) which can be used with recipes_mealplan_delete_entry.',
+      '[RECIPES/MEALPLAN] Get your meal plan data from Grocy instance with corresponding recipe details. Returns planned entries for the requested date plus surrounding days for context. Each entry has a type: "recipe" (recipe_id + recipe_servings; names in recipes) or "note" (free text in note, no recipe); other values (e.g., "product") are not handled by these tools. section_id maps to the returned sections. Use this to find out what is planned for a specific date (e.g., "what\'s for dinner tomorrow", "recipes for today", "meal plan for next week"). The returned id field (meal plan entry ID) can be used with recipes_mealplan_delete_entry.',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object' as const,
@@ -157,7 +157,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_mealplan_get_sections',
     description:
-      '[RECIPES/MEALPLAN] **Read-only:** list meal plan section names/IDs (Breakfast, Dinner, …). Does not return planned meals or dates—use recipes_mealplan_get for the calendar. Needed before recipes_mealplan_add_recipe to pick sectionId; the row with id -1 and name null is Grocy\'s built-in "no section".',
+      '[RECIPES/MEALPLAN] **Read-only:** list meal plan section names/IDs (Breakfast, Dinner, …). Does not return planned meals or dates—use recipes_mealplan_get for the calendar. Needed before recipes_mealplan_add_recipe or recipes_mealplan_add_note to pick sectionId; the row with id -1 and name null is Grocy\'s built-in "no section".',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object' as const,
@@ -168,7 +168,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_mealplan_add_recipe',
     description:
-      '[RECIPES/MEALPLAN] **Write:** put a recipe on the calendar (date + section + servings). Not for listing sections (recipes_mealplan_get_sections) or viewing the plan (recipes_mealplan_get).',
+      '[RECIPES/MEALPLAN] **Write:** put a recipe on the calendar (date + section + servings). For free text without a recipe use recipes_mealplan_add_note. Not for listing sections (recipes_mealplan_get_sections) or viewing the plan (recipes_mealplan_get).',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -196,16 +196,41 @@ export const recipeToolDefinitions: ToolDefinition[] = [
     },
   },
   {
+    name: 'recipes_mealplan_add_note',
+    description:
+      '[RECIPES/MEALPLAN] **Write:** add a free-text note (e.g., "Leftovers", "Eating out") to a meal plan day and section—no recipe involved, nothing is consumed from stock. To plan an actual recipe use recipes_mealplan_add_recipe.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        day: {
+          type: 'string',
+          description: 'Day to add the note to in YYYY-MM-DD format (e.g., "2024-12-25").',
+        },
+        note: {
+          type: 'string',
+          description:
+            'Text shown on the meal plan for that day (e.g., "Leftovers from Sunday", "Dinner at grandma\'s"). Must not be empty.',
+        },
+        sectionId: {
+          type: 'number',
+          description:
+            'ID of the meal plan section (e.g., breakfast, lunch, dinner) to file the note under. Use recipes_mealplan_get_sections tool to discover available sections and their IDs. Use -1 for Grocy\'s built-in "no section"; if the user names no meal or section, use -1 rather than guessing.',
+        },
+      },
+      required: ['day', 'note', 'sectionId'],
+    },
+  },
+  {
     name: 'recipes_mealplan_delete_entry',
     description:
-      '[RECIPES/MEALPLAN] Delete a specific recipe entry from the meal plan. Use recipes_mealplan_get to find the mealPlanEntryId of the entry you want to remove.',
+      '[RECIPES/MEALPLAN] Delete one meal plan entry of any type (recipe, note, product) by its mealPlanEntryId. Use recipes_mealplan_get to find the mealPlanEntryId of the entry you want to remove.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         mealPlanEntryId: {
           type: 'number',
           description:
-            'ID of the specific meal plan entry to delete. Use recipes_mealplan_get to find the correct entry ID.',
+            'ID of the specific meal plan entry to delete (works for any entry type). Use recipes_mealplan_get to find the correct entry ID.',
         },
       },
       required: ['mealPlanEntryId'],
@@ -293,7 +318,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
             : {
                 mealPlanEntryId: {
                   type: 'number',
-                  description: `ID of the meal plan entry. Must be a recipe entry; note and product entries cannot be completed with this tool.${allowAlreadyDone ? '' : ' Note: This will fail if the meal plan entry is already marked as done (done=1).'}`,
+                  description: `ID of the meal plan entry. Must be a recipe entry (type 'recipe' in recipes_mealplan_get); note and product entries cannot be completed with this tool.${allowAlreadyDone ? '' : ' Note: This will fail if the meal plan entry is already marked as done (done=1).'}`,
                 },
               }),
           stockAmounts: {

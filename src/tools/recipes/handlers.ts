@@ -174,6 +174,29 @@ export class RecipeToolHandlers extends BaseToolHandler {
   };
 
   /**
+   * Add free-text note to meal plan
+   */
+  public addNoteToMealPlan: ToolHandler = async (args: any): Promise<ToolResult> => {
+    return this.executeToolHandler(async () => {
+      const { day, note, sectionId } = args || {};
+
+      this.validateRequired({ day, note, sectionId }, ['day', 'note', 'sectionId']);
+      if (typeof note !== 'string' || note.trim() === '') {
+        throw new ValidationError('note must be non-empty text', 'recipes_mealplan_add_note');
+      }
+
+      const result = await this.createMealPlanEntry(
+        day,
+        sectionId,
+        { type: 'note', note },
+        'recipes_mealplan_add_note',
+      );
+
+      return this.createSuccess(result, 'Note added to meal plan successfully');
+    });
+  };
+
+  /**
    * Cook recipe - consume ingredients from stock
    */
   public cookRecipe: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -333,6 +356,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
         simplifiedMealPlanByDate[entryDate].push({
           id: entry.id,
           day: entry.day,
+          type: entry.type,
           section_id: entry.section_id,
           recipe_id: entry.recipe_id,
           recipe_servings: entry.recipe_servings,
@@ -373,15 +397,15 @@ export class RecipeToolHandlers extends BaseToolHandler {
   };
 
   /**
-   * Delete recipe from meal plan
+   * Delete a meal plan entry (any type)
    */
-  public deleteRecipeFromMealPlan: ToolHandler = async (args: any): Promise<ToolResult> => {
+  public deleteMealPlanEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const { mealPlanEntryId } = args || {};
       this.validateRequired({ mealPlanEntryId }, ['mealPlanEntryId']);
 
       const result = await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'DELETE');
-      return this.createSuccess(result, 'Recipe deleted from meal plan successfully');
+      return this.createSuccess(result, 'Meal plan entry deleted successfully');
     });
   };
 

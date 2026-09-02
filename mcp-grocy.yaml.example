@@ -171,6 +171,10 @@ tools:
     enabled: false
     ack_token: DIAMOND_CACTUS_FLOWING
 
+  recipes_mealplan_add_note:
+    enabled: false
+    ack_token: SAFFRON_NOTEBOOK_DRIFTING
+
   recipes_mealplan_delete_entry:
     enabled: false
     ack_token: VELVET_GLACIER_BOUNCING

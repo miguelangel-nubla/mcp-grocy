@@ -122,6 +122,18 @@ use_mcp_tool('mcp-grocy', 'recipes_mealplan_add_recipe', {
 
 Use **`recipes_mealplan_get_sections`** for valid `sectionId` values.
 
+### Add a note to the meal plan (no recipe)
+
+```typescript
+use_mcp_tool('mcp-grocy', 'recipes_mealplan_add_note', {
+  day: '2024-07-01',
+  note: 'Leftovers from Sunday',
+  sectionId: 3,
+});
+```
+
+Same `sectionId` values as above (`-1` = Grocy's built-in "no section").
+
 ### Remove a meal plan entry
 
 ```typescript
@@ -130,7 +142,7 @@ use_mcp_tool('mcp-grocy', 'recipes_mealplan_delete_entry', {
 });
 ```
 
-Use **`recipes_mealplan_get`** to find `mealPlanEntryId`.
+Use **`recipes_mealplan_get`** to find `mealPlanEntryId`. Works for recipe and note entries.
 
 ### Cook / consume recipe ingredients
 

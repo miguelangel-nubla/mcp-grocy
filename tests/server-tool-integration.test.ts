@@ -42,11 +42,23 @@ describe('Server Tool Integration', () => {
       'recipes_mealplan_get',
       'recipes_mealplan_get_sections',
       'recipes_mealplan_add_recipe',
+      'recipes_mealplan_add_note',
     ];
 
     const missingRecipeTools = expectedRecipeTools.filter((tool) => !availableTools.has(tool));
 
     expect(missingRecipeTools).toEqual([]);
+  });
+
+  it('should list every registry tool in mcp-grocy.yaml.example', async () => {
+    const { readFileSync } = await import('fs');
+    const { parse } = await import('yaml');
+    const example = parse(
+      readFileSync(new URL('../mcp-grocy.yaml.example', import.meta.url), 'utf8'),
+    ) as { tools: Record<string, unknown> };
+    const toolRegistry = await createToolRegistry();
+
+    expect(Object.keys(example.tools).sort()).toEqual(toolRegistry.getToolNames().sort());
   });
 
   it('should have handlers for all available tools', async () => {
