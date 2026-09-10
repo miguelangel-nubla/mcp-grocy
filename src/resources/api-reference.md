@@ -1,6 +1,6 @@
 # Grocy API Reference
 
-> Auto-generated from https://demo.grocy.info/api/openapi/specification on 2025-05-17T16:56:10.327Z
+> Auto-generated from https://demo.grocy.info/api/openapi/specification on 2026-09-10T20:59:54.572Z
 
 | Path                                                           | Method | Summary                                                                                                                                                                 |
 | -------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -51,6 +51,7 @@
 | /stock/products/{productId}                                    | GET    | Returns details of the given product                                                                                                                                    |
 | /stock/products/{productId}/add                                | POST   | Adds the given amount of the given product to stock                                                                                                                     |
 | /stock/products/{productId}/consume                            | POST   | Removes the given amount of the given product from stock                                                                                                                |
+| /stock/products/{productId}/copy                               | POST   | Copies a product                                                                                                                                                        |
 | /stock/products/{productId}/entries                            | GET    | Returns all stock entries of the given product in order of next use (Opened first, then first due first, then first in first out)                                       |
 | /stock/products/{productId}/inventory                          | POST   | Inventories the given product (adds/removes based on the given new amount)                                                                                              |
 | /stock/products/{productId}/locations                          | GET    | Returns all locations where the given product currently has stock                                                                                                       |
