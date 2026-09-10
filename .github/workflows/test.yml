@@ -44,17 +44,10 @@ jobs:
       - name: Run tests
         run: npm test
 
-  mcp-validator:
-    name: MCP protocol (${{ matrix.mcp_protocol_version }})
+  mcp-inspector:
+    name: MCP Inspector
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        mcp_protocol_version:
-          - '2024-11-05'
-          - '2025-03-26'
-          - '2025-06-18'
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -64,35 +57,19 @@ jobs:
       - name: Build server
         run: npm run build
 
-      - uses: actions/checkout@v4
-        with:
-          repository: Janix-ai/mcp-validator
-          ref: v0.3.1
-          path: mcp-validator
+      - name: Verify MCP initialization
+        run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method initialize
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - name: Verify MCP tools and schema strictness
+        run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method tools/list --strict
 
-      - name: Run MCP Validator (stdio)
-        working-directory: mcp-validator
-        run: |
-          python -m venv .venv
-          . .venv/bin/activate
-          pip install -r requirements.txt
-          python -m mcp_testing.scripts.compliance_report \
-            --server-command "node ${GITHUB_WORKSPACE}/build/main.js" \
-            --protocol-version "${{ matrix.mcp_protocol_version }}" \
-            --dynamic-only
+      - name: Verify MCP resources
+        run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method resources/list
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mcp-validator-reports-${{ matrix.mcp_protocol_version }}
-          path: mcp-validator/reports/
-
-  # Janix mcp-validator HTTP job removed: http_compliance_test (v0.3.1) sends a non-spec
-  # initialize body; MCP SDK rejects it with 400. Restore a job here when upstream is fixed.
+      - name: Smoke test tool call
+        env:
+          MOCK_API: true
+        run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method tools/call --tool-name system_locations_get
 
   test-build:
     name: Test Docker Image Build

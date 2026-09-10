@@ -27,7 +27,7 @@
     "watch": "tsc --watch",
     "inspector": "npx @modelcontextprotocol/inspector build/main.js",
     "test": "vitest run",
-    "test:mcp-validator": "bash scripts/run-mcp-validator.sh",
+    "test:mcp-inspector": "bash scripts/run-mcp-inspector.sh",
     "dev:mcp-tef": "bash scripts/run-mcp-tef.sh",
     "report:mcp-tef": "bash scripts/mcp-tef-report.sh",
     "start:mcp-http-test": "bash scripts/start-mcp-http-for-tests.sh",
