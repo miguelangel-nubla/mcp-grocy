@@ -10,6 +10,20 @@ if [[ ! -f "$ROOT/build/main.js" ]]; then
   exit 1
 fi
 
+# Ensure configuration exists for tool discovery and execution
+CLEANUP_CONFIG=false
+if [[ ! -f "$ROOT/mcp-grocy.yaml" && ! -f "$ROOT/mcp-grocy.yml" ]]; then
+  cp "$ROOT/mcp-grocy.yaml.example" "$ROOT/mcp-grocy.yaml"
+  CLEANUP_CONFIG=true
+fi
+
+cleanup() {
+  if [[ "$CLEANUP_CONFIG" == "true" ]]; then
+    rm -f "$ROOT/mcp-grocy.yaml"
+  fi
+}
+trap cleanup EXIT
+
 echo "=== MCP Inspector: initialize ==="
 npx --yes @modelcontextprotocol/inspector --cli node "$ROOT/build/main.js" --method initialize
 

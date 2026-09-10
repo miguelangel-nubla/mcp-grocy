@@ -57,6 +57,9 @@ jobs:
       - name: Build server
         run: npm run build
 
+      - name: Setup test configuration
+        run: cp mcp-grocy.yaml.example mcp-grocy.yaml
+
       - name: Verify MCP initialization
         run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method initialize
 
