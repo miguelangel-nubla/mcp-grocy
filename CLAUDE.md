@@ -41,6 +41,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
+### Grocy Backend & Compatibility
+
+- **Primary Backend:** The repository owner uses [grocy-next](https://github.com/miguelangel-nubla/grocy-next) (an enhanced fork of Grocy featuring container inventory management, frontend improvements, etc.) rather than vanilla Grocy.
+- **Compatibility:** All tools, handlers, and payloads must remain compatible with standard upstream Grocy while ensuring first-class compatibility with `grocy-next` (e.g., proper meal plan payload shapes `{day, type: 'recipe', recipe_id, recipe_servings, section_id}` and shadow recipe requirements).
+
 ### MCP Server Structure
 
 This is a **Model Context Protocol (MCP) server** that wraps the Grocy API, built using `@modelcontextprotocol/sdk`. The architecture has been significantly refactored for improved modularity and performance.

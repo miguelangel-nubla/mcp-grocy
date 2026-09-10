@@ -26,6 +26,10 @@
 >
 > If you need complete API access, use the [original fork](https://github.com/saya6k/mcp-grocy-api). This version trades flexibility for focused, dependable grocery management workflows.
 
+> **⚡ Supported Grocy Backends**
+>
+> This MCP server is compatible with standard [Grocy](https://grocy.info/) (v4.x+) as well as [grocy-next](https://github.com/miguelangel-nubla/grocy-next) (an enhanced fork with container inventory management and live workflows). The primary environment used by the author is `grocy-next`.
+
 ## 🎯 What This MCP Does
 
 Transform your LLM into an intelligent household management assistant with focused tools for:
