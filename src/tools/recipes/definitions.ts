@@ -293,7 +293,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
             : {
                 mealPlanEntryId: {
                   type: 'number',
-                  description: `ID of the meal plan entry.${allowAlreadyDone ? '' : ' Note: This will fail if the meal plan entry is already marked as done (done=1).'}`,
+                  description: `ID of the meal plan entry. Must be a recipe entry; note and product entries cannot be completed with this tool.${allowAlreadyDone ? '' : ' Note: This will fail if the meal plan entry is already marked as done (done=1).'}`,
                 },
               }),
           stockAmounts: {
