@@ -255,7 +255,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
       const enrichedMatches = await Promise.all(
         productMatches.map(async (product: any) => {
-          let productEntries: any[] = [];
+          let productEntries: any[];
           try {
             productEntries = await this.apiCall(`/stock/products/${product.id}/entries`);
             productEntries = Array.isArray(productEntries) ? productEntries : [];
