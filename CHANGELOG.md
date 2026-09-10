@@ -1,3 +1,10 @@
+## [2.7.1](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.7.0...v2.7.1) (2026-09-10)
+
+### Bug Fixes
+
+- refuse non-recipe meal plan entries in recipes_cooking_complete before writing ([172d1f0](https://github.com/miguelangel-nubla/mcp-grocy/commit/172d1f0089b1e401736b258cec652a30d90e0215)), closes [#2](https://github.com/miguelangel-nubla/mcp-grocy/issues/2)
+- send correct meal plan payload in recipes_mealplan_add_recipe ([2b180b0](https://github.com/miguelangel-nubla/mcp-grocy/commit/2b180b02b58ab03db69efab727ee53ab88caa0d0)), closes [#2](https://github.com/miguelangel-nubla/mcp-grocy/issues/2)
+
 # [2.7.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.6.0...v2.7.0) (2026-08-03)
 
 ### Bug Fixes
