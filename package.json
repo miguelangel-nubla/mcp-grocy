@@ -20,6 +20,7 @@
   "scripts": {
     "prebuild": "node scripts/build.js",
     "build": "tsc",
+    "prepack": "npm run build",
     "type-check": "tsc --noEmit",
     "prepare": "husky",
     "start": "node build/main.js",

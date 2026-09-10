@@ -13,6 +13,7 @@ npm-debug.log
 *.md
 !README.md
 !CHANGELOG.md
+!DOCS.md
 !src/resources/*.md
 
 # Environment files
