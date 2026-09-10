@@ -157,7 +157,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_mealplan_get_sections',
     description:
-      '[RECIPES/MEALPLAN] **Read-only:** list meal plan section names/IDs (Breakfast, Dinner, …). Does not return planned meals or dates—use recipes_mealplan_get for the calendar. Needed before recipes_mealplan_add_recipe to pick sectionId.',
+      '[RECIPES/MEALPLAN] **Read-only:** list meal plan section names/IDs (Breakfast, Dinner, …). Does not return planned meals or dates—use recipes_mealplan_get for the calendar. Needed before recipes_mealplan_add_recipe to pick sectionId; the row with id -1 and name null is Grocy\'s built-in "no section".',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object' as const,
@@ -189,7 +189,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
         sectionId: {
           type: 'number',
           description:
-            'ID of the meal plan section that defines when this meal will be consumed (e.g., breakfast, lunch, dinner, snacks). Use recipes_mealplan_get_sections tool to discover what sections are available in your Grocy instance and get their specific IDs and names.',
+            'ID of the meal plan section that defines when this meal will be consumed (e.g., breakfast, lunch, dinner, snacks). Use recipes_mealplan_get_sections tool to discover what sections are available in your Grocy instance and get their specific IDs and names. Use -1 for Grocy\'s built-in "no section"; if the user names no meal or section, use -1 rather than guessing.',
         },
       },
       required: ['recipeId', 'day', 'servings', 'sectionId'],
@@ -293,7 +293,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
             : {
                 mealPlanEntryId: {
                   type: 'number',
-                  description: `ID of the meal plan entry.${allowAlreadyDone ? '' : ' Note: This will fail if the meal plan entry is already marked as done (done=1).'}`,
+                  description: `ID of the meal plan entry. Must be a recipe entry; note and product entries cannot be completed with this tool.${allowAlreadyDone ? '' : ' Note: This will fail if the meal plan entry is already marked as done (done=1).'}`,
                 },
               }),
           stockAmounts: {

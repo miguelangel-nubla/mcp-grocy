@@ -347,26 +347,29 @@ describe('RecipeToolHandlers', () => {
   });
 
   describe('addRecipeToMealPlan', () => {
-    it('should add recipe to meal plan', async () => {
-      const mockResponse = { id: 1 };
+    it('should add recipe to meal plan with type, servings and section', async () => {
+      const mockResponse = { created_object_id: '1' };
       mockApiClient.request.mockResolvedValue({
         data: mockResponse,
-        status: 201,
+        status: 200,
         headers: {},
       });
 
       const result = await handlers.addRecipeToMealPlan({
-        recipeId: 1,
+        recipeId: 5,
         day: '2024-01-15',
-        mealType: 'dinner',
+        servings: 2,
+        sectionId: 3,
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
         method: 'POST',
         body: {
           day: '2024-01-15',
-          type: 'dinner',
-          recipe_id: 1,
+          type: 'recipe',
+          recipe_id: 5,
+          recipe_servings: 2,
+          section_id: 3,
         },
         queryParams: {},
       });
@@ -374,36 +377,109 @@ describe('RecipeToolHandlers', () => {
       expect(result.content[0].text).toContain('Recipe added to meal plan successfully');
     });
 
-    it('should require recipeId and day parameters', async () => {
-      const result = await handlers.addRecipeToMealPlan({});
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Missing required parameters: recipeId, day');
-    });
-
-    it('should use default meal type', async () => {
-      const mockResponse = { id: 1 };
-      mockApiClient.request.mockResolvedValue({
-        data: mockResponse,
-        status: 201,
-        headers: {},
-      });
+    it('should accept -1 as the explicit "no section" value', async () => {
+      mockApiClient.request.mockResolvedValue({ data: {}, status: 200, headers: {} });
 
       const result = await handlers.addRecipeToMealPlan({
-        recipeId: 1,
+        recipeId: 5,
         day: '2024-01-15',
+        servings: 1,
+        sectionId: -1,
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan', {
         method: 'POST',
         body: {
           day: '2024-01-15',
-          type: 'lunch',
-          recipe_id: 1,
+          type: 'recipe',
+          recipe_id: 5,
+          recipe_servings: 1,
+          section_id: -1,
         },
         queryParams: {},
       });
       expect(result.isError).toBeUndefined();
+    });
+
+    it('should require recipeId, day, servings and sectionId parameters', async () => {
+      const result = await handlers.addRecipeToMealPlan({});
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(
+        'Missing required parameters: recipeId, day, servings, sectionId',
+      );
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject an invalid day format', async () => {
+      const result = await handlers.addRecipeToMealPlan({
+        recipeId: 5,
+        day: '15/01/2024',
+        servings: 2,
+        sectionId: 3,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('day must be a valid calendar date');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject an impossible calendar date', async () => {
+      for (const day of ['2024-02-30', '2024-13-45']) {
+        const result = await handlers.addRecipeToMealPlan({
+          recipeId: 5,
+          day,
+          servings: 2,
+          sectionId: 3,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('day must be a valid calendar date');
+      }
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject non-positive servings', async () => {
+      const result = await handlers.addRecipeToMealPlan({
+        recipeId: 5,
+        day: '2024-01-15',
+        servings: 0,
+        sectionId: 3,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('servings must be a positive number');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject section ids that cannot exist in Grocy (0, negative, fractional)', async () => {
+      for (const sectionId of [0, -2, 1.5]) {
+        const result = await handlers.addRecipeToMealPlan({
+          recipeId: 5,
+          day: '2024-01-15',
+          servings: 2,
+          sectionId,
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain(
+          'sectionId must be a section id from recipes_mealplan_get_sections, or -1 for no section',
+        );
+      }
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should reject a non-numeric sectionId', async () => {
+      const result = await handlers.addRecipeToMealPlan({
+        recipeId: 5,
+        day: '2024-01-15',
+        servings: 2,
+        sectionId: 'dinner',
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('sectionId must be a valid number');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
     });
   });
 
@@ -630,6 +706,137 @@ describe('RecipeToolHandlers', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Missing required parameters: mealPlanEntryId');
+    });
+  });
+
+  describe('cookedSomething', () => {
+    it('should refuse to complete a note entry without marking it done', async () => {
+      mockApiClient.request.mockResolvedValueOnce({
+        data: {
+          id: 5,
+          day: '2024-01-15',
+          type: 'note',
+          note: 'Leftovers',
+          recipe_id: null,
+          section_id: 1,
+          done: 1, // already done: the type refusal must still win over the done check
+        },
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.cookedSomething({ mealPlanEntryId: 5, stockAmounts: [1] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("cannot be cooked (type 'note', no recipe_id)");
+      expect(result.content[0].text).not.toContain('already marked as done');
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
+      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/meal_plan/5', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {},
+      });
+    });
+
+    it('should refuse entries with an unrecognised type before writing', async () => {
+      // Entry shape reported in #2 (recipes_mealplan_add_recipe used to post type 'lunch')
+      mockApiClient.request.mockResolvedValueOnce({
+        data: { id: 6, day: '2024-01-15', type: 'lunch', recipe_id: 2, section_id: -1, done: 0 },
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.cookedSomething({ mealPlanEntryId: 6, stockAmounts: [2] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("cannot be cooked (type 'lunch')");
+      expect(result.content[0].text).toContain('recipes_mealplan_delete_entry');
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
+      expect(mockApiClient.request).not.toHaveBeenCalledWith(
+        '/objects/meal_plan/6',
+        expect.objectContaining({ method: 'PUT' }),
+      );
+    });
+
+    it('should refuse a recipe-typed entry without recipe_id', async () => {
+      mockApiClient.request.mockResolvedValueOnce({
+        data: { id: 8, day: '2024-01-15', type: 'recipe', recipe_id: null, section_id: 1, done: 0 },
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.cookedSomething({ mealPlanEntryId: 8, stockAmounts: [1] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("cannot be cooked (type 'recipe', no recipe_id)");
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should refuse an entry without a type', async () => {
+      mockApiClient.request.mockResolvedValueOnce({
+        data: { id: 9, day: '2024-01-15', recipe_id: 2, section_id: 1, done: 0 },
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.cookedSomething({ mealPlanEntryId: 9, stockAmounts: [1] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("cannot be cooked (type 'unknown')");
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should mark a recipe entry done and consume its shadow recipe', async () => {
+      mockApiClient.request
+        .mockResolvedValueOnce({
+          data: {
+            id: 7,
+            day: '2024-01-15',
+            type: 'recipe',
+            recipe_id: 73,
+            recipe_servings: 2,
+            section_id: 2,
+            done: 0,
+          },
+          status: 200,
+          headers: {},
+        }) // GET entry
+        .mockResolvedValueOnce({ data: {}, status: 200, headers: {} }) // PUT entry
+        .mockResolvedValueOnce({
+          data: [{ id: 900, name: '2024-01-15#7' }],
+          status: 200,
+          headers: {},
+        }) // shadow recipe lookup
+        .mockResolvedValueOnce({ data: {}, status: 200, headers: {} }) // POST consume
+        .mockResolvedValueOnce({
+          data: { id: 73, name: 'Test Recipe', product_id: null },
+          status: 200,
+          headers: {},
+        }); // GET recipe (no product: no stock split)
+
+      const result = await handlers.cookedSomething({ mealPlanEntryId: 7, stockAmounts: [1, 2] });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(2, '/objects/meal_plan/7', {
+        method: 'PUT',
+        body: { done: 1, recipe_servings: 3 },
+        queryParams: {},
+      });
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(3, '/objects/recipes', {
+        method: 'GET',
+        body: undefined,
+        queryParams: { 'query[]': 'name=2024-01-15#7' },
+      });
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(4, '/recipes/900/consume', {
+        method: 'POST',
+        body: undefined,
+        queryParams: {},
+      });
+      expect(mockApiClient.request).toHaveBeenCalledTimes(5);
+      expect((result.structuredContent?.data as any).completedSteps).toEqual([
+        'Meal plan entry marked as done',
+        'Recipe consumed via meal plan entry',
+      ]);
     });
   });
 

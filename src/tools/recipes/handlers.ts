@@ -38,6 +38,50 @@ export class RecipeToolHandlers extends BaseToolHandler {
   }
 
   /**
+   * Validate a YYYY-MM-DD day parameter. Grocy stores any string in this column, so both the
+   * format and the calendar date are checked before writing.
+   */
+  private validateDay(day: unknown, context: string): void {
+    const parsed = typeof day === 'string' ? new Date(`${day}T00:00:00Z`) : new Date(NaN);
+    const valid =
+      typeof day === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(day) &&
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === day;
+
+    if (!valid) {
+      throw new ValidationError(
+        'day must be a valid calendar date in YYYY-MM-DD format (e.g., "2024-12-25").',
+        context,
+      );
+    }
+  }
+
+  /**
+   * Create a meal plan entry with the same payload shape as the Grocy UI.
+   * `fields` carries the type-specific columns of the entry (type, recipe_id, recipe_servings, ...).
+   */
+  private async createMealPlanEntry(
+    day: unknown,
+    sectionId: unknown,
+    fields: Record<string, unknown>,
+    context: string,
+  ): Promise<any> {
+    this.validateDay(day, context);
+    const section = this.parseNumberParam(sectionId, 'sectionId')!;
+    // Grocy has no section 0 and no foreign-key check: -1 is its built-in "no section",
+    // real section ids start at 1.
+    if (!Number.isInteger(section) || (section !== -1 && section < 1)) {
+      throw new ValidationError(
+        'sectionId must be a section id from recipes_mealplan_get_sections, or -1 for no section',
+        context,
+      );
+    }
+
+    return this.apiCall('/objects/meal_plan', 'POST', { day, section_id: section, ...fields });
+  }
+
+  /**
    * Get recipes with specified fields
    */
   public getRecipes: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -101,18 +145,29 @@ export class RecipeToolHandlers extends BaseToolHandler {
    */
   public addRecipeToMealPlan: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { recipeId, day, mealType } = args || {};
+      const { recipeId, day, servings, sectionId } = args || {};
 
-      this.validateRequired({ recipeId, day }, ['recipeId', 'day']);
-      const id = this.parseNumberParam(recipeId, 'recipeId');
+      this.validateRequired({ recipeId, day, servings, sectionId }, [
+        'recipeId',
+        'day',
+        'servings',
+        'sectionId',
+      ]);
+      const id = this.parseNumberParam(recipeId, 'recipeId')!;
+      const recipeServings = this.parseNumberParam(servings, 'servings')!;
+      if (recipeServings <= 0) {
+        throw new ValidationError(
+          'servings must be a positive number',
+          'recipes_mealplan_add_recipe',
+        );
+      }
 
-      const mealPlanData = {
+      const result = await this.createMealPlanEntry(
         day,
-        type: mealType || 'lunch',
-        recipe_id: id,
-      };
-
-      const result = await this.apiCall('/objects/meal_plan', 'POST', mealPlanData);
+        sectionId,
+        { type: 'recipe', recipe_id: id, recipe_servings: recipeServings },
+        'recipes_mealplan_add_recipe',
+      );
 
       return this.createSuccess(result, 'Recipe added to meal plan successfully');
     });
@@ -524,6 +579,19 @@ export class RecipeToolHandlers extends BaseToolHandler {
         if (!mealPlanEntry) {
           throw new ValidationError(
             `Meal plan entry ${mealPlanEntryId} not found.`,
+            'recipes_cooking_complete',
+          );
+        }
+
+        // Only recipe-typed entries are handled here; check before any write so a note, a
+        // product entry or an entry with an unrecognised type is never marked as done.
+        if (mealPlanEntry.type !== 'recipe' || mealPlanEntry.recipe_id == null) {
+          const hasRecipe = mealPlanEntry.recipe_id != null;
+          const reason = hasRecipe
+            ? 'it was stored with an unrecognised type, so Grocy created no shadow recipe for it; delete it with recipes_mealplan_delete_entry and plan it again'
+            : 'note entries have nothing to consume and product entries are not supported by this tool';
+          throw new ValidationError(
+            `Meal plan entry ${mealPlanEntryId} cannot be cooked (type '${mealPlanEntry.type ?? 'unknown'}'${hasRecipe ? '' : ', no recipe_id'}): only entries with type 'recipe' are handled; ${reason}.`,
             'recipes_cooking_complete',
           );
         }
