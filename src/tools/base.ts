@@ -13,7 +13,7 @@ export abstract class BaseToolHandler {
    * Create a standardized success result
    */
   protected createSuccess(data: any, message?: string): ToolResult {
-    let serializeStructured = false;
+    let serializeStructured: boolean;
     try {
       serializeStructured = config?.server?.serialize_structured_to_content ?? false;
     } catch {

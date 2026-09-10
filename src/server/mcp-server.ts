@@ -22,7 +22,7 @@ import { toolDefinitionInputZod } from './tool-input-zod.js';
 import { logger } from '../utils/logger.js';
 import { ErrorHandler } from '../utils/errors.js';
 
-/** Janix mcp-validator (2025-03-26) checks `tools.asyncSupported`; merge keeps this when SDK adds `listChanged`. */
+/** Protocol capabilities; merge keeps `tools.asyncSupported` when SDK adds `listChanged`. */
 const GROCY_SERVER_CAPABILITIES = {
   tools: {
     asyncSupported: true,

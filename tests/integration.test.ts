@@ -168,9 +168,7 @@ describe('Integration Tests', () => {
       // Mock tool filtering configuration
       vi.doMock('../src/config/environment.js', () => ({
         default: {
-          get: () => ({
-            /* config */
-          }),
+          get: () => ({/* config */}),
           parseToolConfiguration: () => ({
             allowedTools: new Set(['inventory_products_get', 'inventory_stock_get_all']),
             blockedTools: new Set(['delete_recipe_from_meal_plan']),

@@ -159,9 +159,7 @@ If **`system_dev_test_request`** encounters an API error (e.g., authentication f
     "statusCode": 401,
     "statusText": "Unauthorized",
     "timing": "50ms",
-    "headers": {
-      /* ... headers ... */
-    },
+    "headers": {/* ... headers ... */},
     "body": {
       "error_message": "API key is missing or invalid."
     }

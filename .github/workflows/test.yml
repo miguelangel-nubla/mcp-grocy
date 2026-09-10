@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
@@ -44,19 +44,12 @@ jobs:
       - name: Run tests
         run: npm test
 
-  mcp-validator:
-    name: MCP protocol (${{ matrix.mcp_protocol_version }})
+  mcp-inspector:
+    name: MCP Inspector
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        mcp_protocol_version:
-          - '2024-11-05'
-          - '2025-03-26'
-          - '2025-06-18'
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
@@ -64,35 +57,8 @@ jobs:
       - name: Build server
         run: npm run build
 
-      - uses: actions/checkout@v4
-        with:
-          repository: Janix-ai/mcp-validator
-          ref: v0.3.1
-          path: mcp-validator
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Run MCP Validator (stdio)
-        working-directory: mcp-validator
-        run: |
-          python -m venv .venv
-          . .venv/bin/activate
-          pip install -r requirements.txt
-          python -m mcp_testing.scripts.compliance_report \
-            --server-command "node ${GITHUB_WORKSPACE}/build/main.js" \
-            --protocol-version "${{ matrix.mcp_protocol_version }}" \
-            --dynamic-only
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mcp-validator-reports-${{ matrix.mcp_protocol_version }}
-          path: mcp-validator/reports/
-
-  # Janix mcp-validator HTTP job removed: http_compliance_test (v0.3.1) sends a non-spec
-  # initialize body; MCP SDK rejects it with 400. Restore a job here when upstream is fixed.
+      - name: Verify MCP Inspector
+        run: npm run test:mcp-inspector
 
   test-build:
     name: Test Docker Image Build
@@ -103,10 +69,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -116,10 +82,10 @@ jobs:
         uses: ./.github/actions/setup-docker
 
       - name: Test build multi-platform image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           tags: |
             ghcr.io/${{ github.repository }}:dev-${{ github.sha }}

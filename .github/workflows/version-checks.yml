@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Get Current Base Image Version
         id: current-version
@@ -41,6 +41,7 @@ jobs:
         uses: ./.github/actions/get-github-release-version
         with:
           repository: hassio-addons/addon-base
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Issue for Outdated Base Image
         if: steps.current-version.outputs.current_version != steps.extract-version.outputs.version
@@ -81,7 +82,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: ./.github/actions/setup-node
@@ -99,6 +100,7 @@ jobs:
         uses: ./.github/actions/get-github-release-version
         with:
           repository: grocy/grocy
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Issue for Grocy Update
         if: steps.current-version.outputs.current_supported_version != steps.extract-version.outputs.version

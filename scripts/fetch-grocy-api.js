@@ -9,7 +9,6 @@ import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
-import swaggerToMd from 'swagger-to-md';
 
 // Set up paths
 const __filename = fileURLToPath(import.meta.url);
@@ -65,35 +64,23 @@ async function main() {
 
     // Convert Swagger to markdown
     console.log('Converting Swagger documentation to markdown...');
-    // swagger-to-md expects a JSON string, not an object
-    const swaggerStr = JSON.stringify(swaggerData);
-    let markdownContent = swaggerToMd(swaggerStr);
-    console.log(`Generated raw content (${markdownContent.length} bytes)`);
+    const paths = swaggerData.paths || {};
+    const markdownRows = [];
 
-    // Convert the HTML table to a proper Markdown table
-    if (markdownContent.includes('<table>')) {
-      console.log('Detected HTML table, converting to Markdown format...');
+    // Add table header
+    markdownRows.push('| Path | Method | Summary |');
+    markdownRows.push('|------|--------|---------|');
 
-      // Extract the paths from the swagger data and create a proper Markdown table
-      const paths = swaggerData.paths || {};
-      const markdownRows = [];
-
-      // Add table header
-      markdownRows.push('| Path | Method | Summary |');
-      markdownRows.push('|------|--------|---------|');
-
-      // Process each path and its operations
-      for (const path of Object.keys(paths).sort()) {
-        const pathObj = paths[path];
-        for (const method of Object.keys(pathObj)) {
-          const operation = pathObj[method];
-          markdownRows.push(`| ${path} | ${method.toUpperCase()} | ${operation.summary || ''} |`);
-        }
+    // Process each path and its operations
+    for (const path of Object.keys(paths).sort()) {
+      const pathObj = paths[path];
+      for (const method of Object.keys(pathObj)) {
+        const operation = pathObj[method];
+        markdownRows.push(`| ${path} | ${method.toUpperCase()} | ${operation.summary || ''} |`);
       }
-
-      // Replace the HTML table with the Markdown table
-      markdownContent = markdownRows.join('\n');
     }
+
+    const markdownContent = markdownRows.join('\n');
 
     console.log(`Generated markdown content (${markdownContent.length} bytes)`);
 
