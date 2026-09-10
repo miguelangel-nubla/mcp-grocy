@@ -33,7 +33,7 @@ npx --yes @modelcontextprotocol/inspector --cli node "$ROOT/build/main.js" --met
 echo "=== MCP Inspector: resources/list ==="
 npx --yes @modelcontextprotocol/inspector --cli node "$ROOT/build/main.js" --method resources/list
 
-echo "=== MCP Inspector: tools/call smoke test ==="
-MOCK_API=true npx --yes @modelcontextprotocol/inspector --cli node "$ROOT/build/main.js" --method tools/call --tool-name system_locations_get
+echo "=== MCP Inspector: resources/read ==="
+npx --yes @modelcontextprotocol/inspector --cli node "$ROOT/build/main.js" --method resources/read --uri mcp-grocy://examples
 
 echo "All MCP Inspector checks passed successfully!"

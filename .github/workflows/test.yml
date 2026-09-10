@@ -69,10 +69,8 @@ jobs:
       - name: Verify MCP resources
         run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method resources/list
 
-      - name: Smoke test tool call
-        env:
-          MOCK_API: true
-        run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method tools/call --tool-name system_locations_get
+      - name: Verify reading an MCP resource
+        run: npx --yes @modelcontextprotocol/inspector --cli node build/main.js --method resources/read --uri mcp-grocy://examples
 
   test-build:
     name: Test Docker Image Build
