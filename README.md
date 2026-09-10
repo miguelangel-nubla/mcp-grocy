@@ -6,6 +6,20 @@
 [![Configuration Status](https://github.com/miguelangel-nubla/mcp-grocy/actions/workflows/validate-config.yml/badge.svg)](https://github.com/miguelangel-nubla/mcp-grocy/actions/workflows/validate-config.yml)
 [![CI/CD Pipeline](https://github.com/miguelangel-nubla/mcp-grocy/actions/workflows/pipeline.yml/badge.svg)](https://github.com/miguelangel-nubla/mcp-grocy/actions/workflows/pipeline.yml)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue)](https://modelcontextprotocol.io)
+[![Recommended Backend: grocy-next](https://img.shields.io/badge/Recommended%20Backend-grocy--next-brightgreen?logo=docker)](https://github.com/miguelangel-nubla/grocy-next)
+
+> ### 🌟 Recommended Companion: [grocy-next](https://github.com/miguelangel-nubla/grocy-next)
+>
+> While **mcp-grocy** works great with standard upstream [Grocy](https://grocy.info/) (v4.x+), it is primarily developed and daily-driven with **[grocy-next](https://github.com/miguelangel-nubla/grocy-next)**.
+>
+> **grocy-next** is an enhanced, 100% compatible drop-in Docker distribution of Grocy featuring:
+>
+> - 📦 **Container Inventory Management:** Barcode-driven container packing, location hierarchies, and rapid transfers.
+> - ⚖️ **Hardware & Home Assistant Integration:** Native helper integration for smart scales and wireless barcode scanners.
+> - 🖥️ **Live Screens & Pending Scans:** Dedicated live inventory dashboards and async scan queues.
+> - 🥗 **Enhanced Meal Planning:** Calorie breakdown per serving and streamlined meal plan workflows.
+>
+> 👉 If you want the most seamless experience with this MCP, deploy **[miguelangel-nubla/grocy-next](https://github.com/miguelangel-nubla/grocy-next)**!
 
 > **🍴 Opinionated Fork Notice**
 >
@@ -25,10 +39,6 @@
 > - **Opinionated workflows** that may not match everyone's preferences
 >
 > If you need complete API access, use the [original fork](https://github.com/saya6k/mcp-grocy-api). This version trades flexibility for focused, dependable grocery management workflows.
-
-> **⚡ Supported Grocy Backends**
->
-> This MCP server is compatible with standard [Grocy](https://grocy.info/) (v4.x+) as well as [grocy-next](https://github.com/miguelangel-nubla/grocy-next) (an enhanced fork with container inventory management and live workflows). The primary environment used by the author is `grocy-next`.
 
 ## 🎯 What This MCP Does
 
@@ -64,7 +74,7 @@ Transform your LLM into an intelligent household management assistant with focus
 
 ## ⚡ Quick Start
 
-1. **Get your Grocy API key** from your Grocy instance (User Settings → API Keys)
+1. **Get your Grocy API key** from your Grocy or [grocy-next](https://github.com/miguelangel-nubla/grocy-next) instance (User Settings → API Keys)
 2. **Set up with Docker Compose:**
 
    ```bash
