@@ -10,9 +10,44 @@ import { logger } from '../utils/logger.js';
 
 export abstract class BaseToolHandler {
   /**
+   * Normalizes response data so IDs (like created_object_id or entity id) are numeric.
+   */
+  protected normalizeResponseData(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((item) => this.normalizeResponseData(item));
+    }
+
+    if (Object.prototype.toString.call(data) !== '[object Object]') {
+      return data;
+    }
+
+    const normalized: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'created_object_id' && value !== null && value !== undefined) {
+        const num = Number(value);
+        normalized[key] = Number.isInteger(num) && num > 0 ? num : value;
+      } else if (key === 'id' && typeof value === 'string') {
+        const num = Number(value);
+        normalized[key] = Number.isInteger(num) && num > 0 ? num : value;
+      } else if (value && typeof value === 'object') {
+        normalized[key] = this.normalizeResponseData(value);
+      } else {
+        normalized[key] = value;
+      }
+    }
+    return normalized;
+  }
+
+  /**
    * Create a standardized success result
    */
   protected createSuccess(data: any, message?: string): ToolResult {
+    const normalizedData = this.normalizeResponseData(data);
+
     let serializeStructured: boolean;
     try {
       serializeStructured = config?.server?.serialize_structured_to_content ?? false;
@@ -21,10 +56,10 @@ export abstract class BaseToolHandler {
     }
 
     const textContent =
-      serializeStructured && data !== undefined && data !== null
+      serializeStructured && normalizedData !== undefined && normalizedData !== null
         ? message
-          ? `${message}\n${this.safeStringify(data)}`
-          : this.safeStringify(data)
+          ? `${message}\n${this.safeStringify(normalizedData)}`
+          : this.safeStringify(normalizedData)
         : message || 'Operation completed successfully';
 
     return {
@@ -35,7 +70,7 @@ export abstract class BaseToolHandler {
         },
       ],
       structuredContent: {
-        data: data ?? null,
+        data: normalizedData ?? null,
       },
     };
   }
