@@ -53,6 +53,27 @@ jobs:
         if: steps.check_image.outputs.image_exists != 'true'
         uses: ./.github/actions/setup-docker
 
+      - name: Determine Docker Tags
+        id: docker_tags
+        run: |
+          VERSION="${{ env.RELEASE_VERSION }}"
+          echo "Determining tags for version: $VERSION"
+
+          TAGS="ghcr.io/${{ github.repository }}:$VERSION"
+
+          # Only tag :latest if this is a stable release (e.g. v1.2.3, not containing hyphen like -dev or -beta)
+          if [[ "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Stable release detected; tagging as latest as well."
+            TAGS="$TAGS
+          ghcr.io/${{ github.repository }}:latest"
+          else
+            echo "Prerelease or custom tag detected ($VERSION); skipping latest tag."
+          fi
+
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Build and push multi-platform image
         if: steps.check_image.outputs.image_exists != 'true'
         uses: docker/build-push-action@v7
@@ -62,9 +83,7 @@ jobs:
           push: true
           build-args: |
             RELEASE_VERSION=${{ env.RELEASE_VERSION }}
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ env.RELEASE_VERSION }}
-            ghcr.io/${{ github.repository }}:latest
+          tags: ${{ steps.docker_tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
