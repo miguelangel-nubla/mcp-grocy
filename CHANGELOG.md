@@ -1,9 +1,8 @@
 ## [2.7.2](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.7.1...v2.7.2) (2026-09-10)
 
-
 ### Bug Fixes
 
-* add prepack script, update release configs, and fix docker workflows ([c464c05](https://github.com/miguelangel-nubla/mcp-grocy/commit/c464c054ab4f3f420647196ded7454c60f3702fc))
+- add prepack script, update release configs, and fix docker workflows ([c464c05](https://github.com/miguelangel-nubla/mcp-grocy/commit/c464c054ab4f3f420647196ded7454c60f3702fc))
 
 ## [2.7.1](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.7.0...v2.7.1) (2026-09-10)
 
