@@ -102,7 +102,9 @@ function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
       inner = z.unknown();
   }
 
-  return required ? inner : inner.optional();
+  // Keep the per-property description in the advertised JSON Schema (LLM clients read it).
+  const described = prop.description ? inner.describe(prop.description) : inner;
+  return required ? described : described.optional();
 }
 
 function objectPropsToZod(

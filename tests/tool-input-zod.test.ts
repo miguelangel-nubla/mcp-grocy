@@ -96,6 +96,15 @@ describe('toolDefinitionInputZod', () => {
     expect(json.properties.kind).toMatchObject({ type: 'string', enum: ['a', 'b'] });
     expect(json.required).toEqual(['productId', 'amount']);
   });
+
+  it('advertises the property descriptions written in the tool definitions', () => {
+    const json = toJsonSchemaCompat(schema) as { properties: Record<string, any> };
+
+    expect(json.properties.productId.description).toBe('Product ID');
+    expect(json.properties.amount.description).toBe('Amount');
+    expect(json.properties.spoiled.description).toBe('Spoiled?');
+    expect(json.properties.note.description).toBeUndefined();
+  });
 });
 
 describe('toolDefinitionInputZod through McpServer tools/call', () => {
@@ -125,7 +134,10 @@ describe('toolDefinitionInputZod through McpServer tools/call', () => {
     await client.connect(clientTransport);
 
     const { tools } = await client.listTools();
-    expect((tools[0]?.inputSchema as any).properties.productId.type).toBe('number');
+    expect((tools[0]?.inputSchema as any).properties.productId).toMatchObject({
+      type: 'number',
+      description: 'Product ID',
+    });
 
     const result = await client.callTool({
       name: definition.name,
@@ -141,6 +153,10 @@ describe('toolDefinitionInputZod through McpServer tools/call', () => {
     });
     expect(rejected.isError).toBe(true);
     expect(JSON.stringify(rejected.content)).toMatch(/expected number/);
+
+    const missing = await client.callTool({ name: definition.name, arguments: { amount: 2 } });
+    expect(missing.isError).toBe(true);
+    expect(JSON.stringify(missing.content)).toMatch(/productId/);
     expect(received).toHaveLength(1);
   });
 });
