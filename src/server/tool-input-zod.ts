@@ -20,6 +20,35 @@ function isStringTupleEnum(values: unknown[]): values is [string, ...string[]] {
   return values.length > 0 && values.every((v) => typeof v === 'string');
 }
 
+/**
+ * Some MCP clients serialize every tool argument as a string ("12", "true"). Accept those
+ * encodings for number/boolean properties: z.preprocess converts them before validation, and the
+ * JSON Schema advertised by tools/list still shows the wrapped type because Zod 4's toJSONSchema
+ * (io: 'input', which the SDK uses) resolves a preprocess pipe to its output schema — pinned by
+ * tests/tool-input-zod.test.ts. Only JSON number syntax and "true"/"false" are converted;
+ * anything else is passed through unchanged so the usual type error is still raised.
+ */
+const JSON_NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
+
+function numericStringToNumber(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!JSON_NUMBER.test(trimmed)) return value;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+function booleanStringToBoolean(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return value;
+}
+
+const lenientNumber = (): z.ZodTypeAny => z.preprocess(numericStringToNumber, z.number());
+const lenientBoolean = (): z.ZodTypeAny => z.preprocess(booleanStringToBoolean, z.boolean());
+
 function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
   const t = prop.type;
   let inner: z.ZodTypeAny;
@@ -35,10 +64,10 @@ function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
     }
     case 'number':
     case 'integer':
-      inner = z.number();
+      inner = lenientNumber();
       break;
     case 'boolean':
-      inner = z.boolean();
+      inner = lenientBoolean();
       break;
     case 'array': {
       const items = prop.items;
@@ -47,9 +76,9 @@ function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
       } else if (items?.type === 'string') {
         inner = z.array(z.string());
       } else if (items?.type === 'number' || items?.type === 'integer') {
-        inner = z.array(z.number());
+        inner = z.array(lenientNumber());
       } else if (items?.type === 'boolean') {
-        inner = z.array(z.boolean());
+        inner = z.array(lenientBoolean());
       } else {
         inner = z.array(z.unknown());
       }
