@@ -1,3 +1,17 @@
+# [2.8.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.7.2...v2.8.0) (2026-09-25)
+
+
+### Bug Fixes
+
+* accept numbers and booleans encoded as strings in tool arguments ([5dfbbc7](https://github.com/miguelangel-nubla/mcp-grocy/commit/5dfbbc799fdfde36255f6fcc3665e0113f36cf14))
+* advertise tool parameter descriptions in tools/list ([0418bf5](https://github.com/miguelangel-nubla/mcp-grocy/commit/0418bf5be83428f19e52c2952e2f3e5bdd078d73))
+* **tools:** normalize created_object_id and id to numbers in responses ([5f613d6](https://github.com/miguelangel-nubla/mcp-grocy/commit/5f613d6b6c87f860ac3a79e6d8a473a91d19d3a7))
+
+
+### Features
+
+* add recipes_mealplan_add_note tool for meal plan notes with sections ([e80aa65](https://github.com/miguelangel-nubla/mcp-grocy/commit/e80aa651e9653bf765d361a4ebc3d285d325a23e)), closes [#2](https://github.com/miguelangel-nubla/mcp-grocy/issues/2)
+
 ## [2.7.2](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.7.1...v2.7.2) (2026-09-10)
 
 ### Bug Fixes
