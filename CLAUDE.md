@@ -151,10 +151,10 @@ tools:
 
 **Tool Categories Available**:
 
-- **Inventory**: 14 tools (stock management, transactions, products)
-- **Recipes**: 13 tools (management, meal planning, cooking)
-- **Shopping**: 4 tools (lists, locations)
-- **Household**: 8 tools (chores, tasks, batteries, equipment)
+- **Inventory**: 18 tools (stock management, transactions, products)
+- **Recipes**: 15 tools (management, meal planning incl. notes, cooking)
+- **Shopping**: 8 tools (lists, locations)
+- **Household**: 10 tools (chores, tasks, batteries, equipment)
 - **System**: 5 tools (locations, units, dev utilities)
 
 #### Environment Variables

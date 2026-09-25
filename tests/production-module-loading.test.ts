@@ -42,6 +42,7 @@ describe('Production Module Loading', () => {
         'recipes_mealplan_get',
         'recipes_mealplan_get_sections',
         'recipes_mealplan_add_recipe',
+        'recipes_mealplan_add_note',
       ];
 
       for (const toolName of expectedRecipeTools) {

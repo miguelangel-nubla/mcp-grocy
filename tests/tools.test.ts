@@ -76,4 +76,20 @@ describe('Tool Definitions Structure', () => {
 
     expect(toolNames.length).toBe(uniqueNames.length);
   });
+
+  it('should keep the meal plan write tools fully required (schema/handler drift caused #2)', () => {
+    const byName = Object.fromEntries(definitions.map((d) => [d.name, d]));
+
+    expect(byName.recipes_mealplan_add_recipe.inputSchema.required).toEqual([
+      'recipeId',
+      'day',
+      'servings',
+      'sectionId',
+    ]);
+    expect(byName.recipes_mealplan_add_note.inputSchema.required).toEqual([
+      'day',
+      'note',
+      'sectionId',
+    ]);
+  });
 });

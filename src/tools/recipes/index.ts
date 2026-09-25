@@ -23,7 +23,8 @@ export const recipeModule: ToolModule = {
     recipes_mealplan_get: handlers.getMealPlan,
     recipes_mealplan_get_sections: handlers.getMealPlanSections,
     recipes_mealplan_add_recipe: handlers.addRecipeToMealPlan,
-    recipes_mealplan_delete_entry: handlers.deleteRecipeFromMealPlan,
+    recipes_mealplan_add_note: handlers.addNoteToMealPlan,
+    recipes_mealplan_delete_entry: handlers.deleteMealPlanEntry,
 
     // Recipe Cooking
     recipes_cooking_consume: handlers.consumeRecipe,
