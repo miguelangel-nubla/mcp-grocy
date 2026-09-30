@@ -57,7 +57,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_management_create',
     description:
-      '[RECIPES/MANAGEMENT] Create a new recipe in your Grocy instance with the provided name, description, base servings, and instructions.',
+      '[RECIPES/MANAGEMENT] Create a new recipe (name, base servings, description/preparation). Add its ingredients afterwards with recipes_ingredients_add.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -76,7 +76,8 @@ export const recipeToolDefinitions: ToolDefinition[] = [
         },
         instructions: {
           type: 'string',
-          description: 'Recipe instructions (optional)',
+          description:
+            "Preparation steps (optional); stored after the description in Grocy's preparation text.",
         },
       },
       required: ['name'],

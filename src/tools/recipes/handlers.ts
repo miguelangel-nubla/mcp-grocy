@@ -430,12 +430,13 @@ export class RecipeToolHandlers extends BaseToolHandler {
 
       this.validateRequired({ name }, ['name']);
 
+      // Grocy has no instructions column (POSTing one is HTTP 400): its preparation text is
+      // `description`, so instructions follow the description there.
       const recipeData = {
         name,
-        description: description || '',
+        description: [description, instructions].filter((part) => part).join('\n\n'),
         base_servings: baseServings || 1,
         type: 'normal',
-        instructions: instructions || '',
       };
 
       const result = await this.apiCall('/objects/recipes', 'POST', recipeData);

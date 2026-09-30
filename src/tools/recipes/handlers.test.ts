@@ -138,10 +138,9 @@ describe('RecipeToolHandlers', () => {
         method: 'POST',
         body: {
           name: 'New Recipe',
-          description: 'A test recipe',
+          description: 'A test recipe\n\nMix and cook',
           base_servings: 4,
           type: 'normal',
-          instructions: 'Mix and cook',
         },
         queryParams: {},
       });
@@ -173,7 +172,6 @@ describe('RecipeToolHandlers', () => {
           description: '',
           base_servings: 1,
           type: 'normal',
-          instructions: '',
         },
         queryParams: {},
       });
