@@ -1,10 +1,12 @@
 import { ToolModule } from '../types.js';
 import { recipeToolDefinitions } from './definitions.js';
 import { RecipeToolHandlers } from './handlers.js';
+import { RecipeIngredientHandlers } from './ingredients.js';
 import { validateCompleteSubConfigs } from './validations.js';
 
 // Use simplified handlers
 const handlers = new RecipeToolHandlers();
+const ingredients = new RecipeIngredientHandlers();
 
 export const recipeModule: ToolModule = {
   definitions: recipeToolDefinitions,
@@ -14,6 +16,12 @@ export const recipeModule: ToolModule = {
     recipes_management_get_by_id: handlers.getRecipeById,
     recipes_management_create: handlers.createRecipe,
     recipes_management_print_label: handlers.printRecipeLabel,
+
+    // Recipe Ingredients (amounts converted to the product's stock unit)
+    recipes_ingredients_get: ingredients.getIngredients,
+    recipes_ingredients_add: ingredients.addIngredient,
+    recipes_ingredients_update: ingredients.updateIngredient,
+    recipes_ingredients_delete: ingredients.deleteIngredient,
 
     // Recipe Fulfillment
     recipes_fulfillment_get: handlers.getRecipeFulfillment,

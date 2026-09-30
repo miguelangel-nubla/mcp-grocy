@@ -83,6 +83,101 @@ export const recipeToolDefinitions: ToolDefinition[] = [
     },
   },
   {
+    name: 'recipes_ingredients_get',
+    description:
+      "[RECIPES/INGREDIENTS] List a recipe's ingredients with ingredientId, product, the amount and unit Grocy shows, and the stockAmount/stockUnit Grocy stores and uses for stock and shopping.",
+    annotations: { readOnlyHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        recipeId: { type: 'number', description: 'ID of the recipe (recipes_management_get).' },
+      },
+      required: ['recipeId'],
+    },
+  },
+  {
+    name: 'recipes_ingredients_add',
+    description:
+      '[RECIPES/INGREDIENTS] Add an ingredient to a recipe (amount for the recipe\'s base servings). Give the amount in the unit you name (e.g. 500 + "Gramo", 2 + "Cucharada"); it is converted to the product\'s stock unit with Grocy\'s conversions, as the Grocy form does. Fails if the product has no conversion from that unit. Never write objects/recipes_pos directly: Grocy would read the number in the stock unit (500 g on a kilo product = 500 kg).',
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        recipeId: {
+          type: 'number',
+          description: 'ID of the recipe (recipes_management_get / recipes_management_create).',
+        },
+        productId: {
+          type: 'number',
+          description: 'ID of the product (inventory_products_lookup).',
+        },
+        amount: { type: 'number', description: "Amount in unit, for the recipe's base servings." },
+        unit: {
+          type: 'string',
+          description:
+            "Quantity unit of amount: its id or name (system_units_get). Omit to use the product's stock unit.",
+        },
+        note: { type: 'string', description: 'Optional note shown with the ingredient.' },
+        onlyCheckSingleUnitInStock: {
+          type: 'boolean',
+          description:
+            'Only check that any of it is in stock (salt, spices); the amount is not tracked.',
+        },
+        notCheckStockFulfillment: {
+          type: 'boolean',
+          description:
+            'Never ask for this ingredient in stock or on the shopping list (e.g. water).',
+        },
+      },
+      required: ['recipeId', 'productId', 'amount'],
+    },
+  },
+  {
+    name: 'recipes_ingredients_update',
+    description:
+      "[RECIPES/INGREDIENTS] Change an ingredient (ingredientId from recipes_ingredients_get). A new amount is given in unit (or the ingredient's current unit) and converted to the stock unit like recipes_ingredients_add.",
+    annotations: { readOnlyHint: false, destructiveHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ingredientId: {
+          type: 'number',
+          description: 'ID of the ingredient row (recipes_ingredients_get).',
+        },
+        productId: { type: 'number', description: 'Optional new product; requires amount.' },
+        amount: {
+          type: 'number',
+          description: "Optional new amount in unit, for the recipe's base servings.",
+        },
+        unit: {
+          type: 'string',
+          description:
+            "Optional unit of amount: id or name. Omit to keep the ingredient's current unit.",
+        },
+        note: { type: 'string', description: 'Optional new note.' },
+        onlyCheckSingleUnitInStock: { type: 'boolean', description: 'Optional new flag.' },
+        notCheckStockFulfillment: { type: 'boolean', description: 'Optional new flag.' },
+      },
+      required: ['ingredientId'],
+    },
+  },
+  {
+    name: 'recipes_ingredients_delete',
+    description:
+      '[RECIPES/INGREDIENTS] Remove an ingredient from its recipe (ingredientId from recipes_ingredients_get).',
+    annotations: { readOnlyHint: false, destructiveHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ingredientId: {
+          type: 'number',
+          description: 'ID of the ingredient row (recipes_ingredients_get).',
+        },
+      },
+      required: ['ingredientId'],
+    },
+  },
+  {
     name: 'recipes_management_print_label',
     description:
       '[RECIPES/MANAGEMENT] Print a Grocycode label for a recipe. Use recipes_management_get to find valid recipeId values.',
