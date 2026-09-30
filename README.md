@@ -166,6 +166,7 @@ docker compose up -d
 3. **Essential variables:**
    - `GROCY_BASE_URL` - Your Grocy instance URL
    - `GROCY_API_KEY` - Your Grocy API key
+   - `GROCY_ENABLE_DEV_TOOLS=true` - only if you want the raw API tools (`system_dev_*`); they stay off otherwise, and refuse writes that skip Grocy's unit conversion
 
 ### Configuration Options
 

@@ -100,4 +100,28 @@ tools:
     expect(enabledTools.has('inventory_stock_get_all')).toBe(true);
     expect(enabledTools.has('inventory_products_get')).toBe(false);
   });
+
+  it('keeps system_dev_* tools off unless GROCY_ENABLE_DEV_TOOLS=true', async () => {
+    const { existsSync, readFileSync } = await import('fs');
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(`
+tools:
+  inventory_stock_get_all:
+    enabled: true
+  system_dev_call_api:
+    enabled: true
+  system_dev_test_request:
+    enabled: true
+`);
+    const ConfigManagerClass = ConfigManager as any;
+
+    delete process.env.GROCY_ENABLE_DEV_TOOLS;
+    const off = new ConfigManagerClass().parseToolConfiguration().enabledTools;
+    expect([...off]).toEqual(['inventory_stock_get_all']);
+
+    process.env.GROCY_ENABLE_DEV_TOOLS = 'true';
+    const on = new ConfigManagerClass().parseToolConfiguration().enabledTools;
+    expect(on.has('system_dev_call_api')).toBe(true);
+    expect(on.has('system_dev_test_request')).toBe(true);
+  });
 });

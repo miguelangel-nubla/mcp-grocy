@@ -128,6 +128,23 @@ tools:
     enabled: false
     # ack_token: CORAL_STARFISH_BLOOMING
 
+    # Recipe Ingredients: amounts are given in any unit and stored in the product's stock unit
+  recipes_ingredients_get:
+    enabled: true
+    # ack_token: AMBER_LADLE_WHISTLING
+
+  recipes_ingredients_add:
+    enabled: false
+    # ack_token: INDIGO_WHISK_HUMMING
+
+  recipes_ingredients_update:
+    enabled: false
+    # ack_token: OLIVE_SIEVE_DRIFTING
+
+  recipes_ingredients_delete:
+    enabled: false
+    # ack_token: PLUM_GRATER_NODDING
+
     # Recipe Fulfillment
   recipes_fulfillment_get:
     enabled: true
@@ -275,7 +292,9 @@ tools:
     enabled: false
     # ack_token: GOLD_ENVELOPE_JUGGLING
 
-    # Developer/Testing Tools
+    # Developer/Testing Tools: raw Grocy API. Off unless GROCY_ENABLE_DEV_TOOLS=true as well;
+    # even then they refuse writes of stored amounts (recipe ingredients, shopping list, meal plan,
+    # chores) and stock unit changes, which skip Grocy's unit conversion.
   system_dev_call_api:
     enabled: false
     # ack_token: ROSE_ZIPPER_SWIMMING

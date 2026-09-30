@@ -22,6 +22,8 @@ const EnvironmentSchema = z.object({
   GROCY_API_KEY: z.string().optional(),
   GROCY_ENABLE_SSL_VERIFY: z.enum(['true', 'false']).optional(),
   GROCY_MAX_RESPONSE_BYTES: z.string().regex(/^\d+$/).optional(),
+  /** system_dev_* raw API tools stay off unless this is 'true', whatever the YAML says. */
+  GROCY_ENABLE_DEV_TOOLS: z.enum(['true', 'false']).optional(),
 
   // Server Configuration
   REST_RESPONSE_SIZE_LIMIT: z.string().regex(/^\d+$/).optional(),
@@ -100,6 +102,13 @@ const YamlConfigSchema = z
       .default({}),
   })
   .strict();
+
+/**
+ * Raw Grocy API passthrough. Writes through it skip every unit conversion the Grocy UI does
+ * (an ingredient `{amount: 500, qu_id: <Gramo>}` on a kilo product is 500 kg), so they are
+ * off by default and, when on, refuse amount-bearing writes (src/tools/system/write-guard.ts).
+ */
+export const DEV_TOOLS = new Set(['system_dev_call_api', 'system_dev_test_request']);
 
 export type Environment = z.infer<typeof EnvironmentSchema>;
 export type YamlConfig = z.infer<typeof YamlConfigSchema>;
@@ -320,6 +329,11 @@ export class ConfigManager {
     }
   }
 
+  /** Raw Grocy API passthrough tools: off unless GROCY_ENABLE_DEV_TOOLS=true (see DEV_TOOLS). */
+  public get devToolsEnabled(): boolean {
+    return this.config.env.GROCY_ENABLE_DEV_TOOLS === 'true';
+  }
+
   public parseToolConfiguration(): {
     enabledTools: Set<string>;
     toolSubConfigs: Map<string, Map<string, any>>;
@@ -330,6 +344,13 @@ export class ConfigManager {
     const toolAckTokens = new Map<string, string>();
 
     for (const [toolName, toolConfig] of Object.entries(this.config.yaml.tools)) {
+      if (toolConfig.enabled && DEV_TOOLS.has(toolName) && !this.devToolsEnabled) {
+        logger.warn(
+          `${toolName} is enabled in YAML but stays off: set GROCY_ENABLE_DEV_TOOLS=true`,
+          'CONFIG',
+        );
+        continue;
+      }
       if (toolConfig.enabled) {
         enabledTools.add(toolName);
 

@@ -152,10 +152,10 @@ tools:
 **Tool Categories Available**:
 
 - **Inventory**: 18 tools (stock management, transactions, products)
-- **Recipes**: 15 tools (management, meal planning incl. notes, cooking)
+- **Recipes**: 19 tools (management, ingredients, meal planning incl. notes, cooking)
 - **Shopping**: 8 tools (lists, locations)
 - **Household**: 10 tools (chores, tasks, batteries, equipment)
-- **System**: 5 tools (locations, units, dev utilities)
+- **System**: 5 tools (locations, units, dev utilities: off unless `GROCY_ENABLE_DEV_TOOLS=true`)
 
 #### Environment Variables
 
@@ -164,6 +164,17 @@ tools:
 - `LOG_LEVEL` - Logging level (ERROR, WARN, INFO, DEBUG, TRACE)
 - `LOG_CATEGORIES` - Comma-separated category filter
 - `NODE_ENV` - Environment mode (development, production, test)
+- `GROCY_ENABLE_DEV_TOOLS` - `true` allows the raw API tools (`system_dev_*`) that YAML enables; anything else keeps them off
+
+### Grocy amounts are stored in the stock unit
+
+Grocy keeps recipe ingredient (`recipes_pos.amount`), shopping list, meal plan and chore amounts in
+the product's **stock** quantity unit; `qu_id` only picks the unit shown. The Grocy UI converts what
+is typed, a raw API write does not: `{amount: 500, qu_id: <Gramo>}` on a kilo product is 500 kg.
+Tools that write amounts either take them in the stock unit (and say so) or convert with
+`quantity_unit_conversions_resolved` and fail without a conversion (`recipes_ingredients_*`,
+`src/tools/recipes/ingredients.ts`). The raw passthrough refuses those writes and stock-unit
+changes (`src/tools/system/write-guard.ts`).
 
 ### Error Handling and Validation
 

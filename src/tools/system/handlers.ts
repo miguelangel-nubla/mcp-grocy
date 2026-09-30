@@ -4,6 +4,7 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import apiClient from '../../api/client.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
+import { refuseRawWrite } from './write-guard.js';
 
 export class SystemToolHandlers extends BaseToolHandler {
   private redactHeaders(headers: Record<string, unknown>): Record<string, unknown> {
@@ -120,6 +121,10 @@ export class SystemToolHandlers extends BaseToolHandler {
 
     // Remove leading /api/ if present
     const cleanEndpoint = endpoint.replace(/^\/?(?:api\/)?/, '');
+    const refused = refuseRawWrite(method, cleanEndpoint, body);
+    if (refused) {
+      return this.createError(refused);
+    }
 
     try {
       const response = await apiClient.request(`/${cleanEndpoint}`, {
@@ -142,6 +147,10 @@ export class SystemToolHandlers extends BaseToolHandler {
     }
 
     const normalizedEndpoint = `/${endpoint.replace(/^\/+|\/+$/g, '')}`;
+    const refused = refuseRawWrite(method, normalizedEndpoint, body);
+    if (refused) {
+      return this.createError(refused);
+    }
     const requestHeaders = { ...config.getCustomHeaders(), ...headers };
     const safeRequestHeaders = this.redactHeaders(requestHeaders);
 

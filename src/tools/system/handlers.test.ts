@@ -87,6 +87,31 @@ describe('SystemToolHandlers', () => {
     vi.clearAllMocks();
   });
 
+  describe('raw API writes that skip unit conversion', () => {
+    it('callGrocyApi refuses an ingredient write before calling Grocy', async () => {
+      const result = await handlers.callGrocyApi({
+        endpoint: 'objects/recipes_pos',
+        method: 'POST',
+        body: { recipe_id: 139, product_id: 8, amount: 500, qu_id: 5 },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0]!.text).toContain('recipes_ingredients_add');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('testRequest refuses a stock unit change before calling Grocy', async () => {
+      const result = await handlers.testRequest({
+        method: 'PUT',
+        endpoint: '/objects/products/8',
+        body: { qu_id_stock: 2 },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getLocations', () => {
     it('should get all locations', async () => {
       const mockLocations = [
