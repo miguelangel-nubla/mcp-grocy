@@ -274,7 +274,7 @@ describe('ShoppingToolHandlers', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain(
-        'productId must be a valid positive integer ID of an existing product when allow_note_only is false',
+        'productId is required and must be a positive integer ID of an existing product when allow_note_only is false',
       );
     });
 
@@ -290,7 +290,7 @@ describe('ShoppingToolHandlers', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain(
-        'productId must be a valid positive integer ID of an existing product when allow_note_only is false',
+        'productId is required and must be a positive integer ID of an existing product when allow_note_only is false',
       );
     });
 

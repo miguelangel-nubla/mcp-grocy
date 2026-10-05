@@ -49,13 +49,13 @@ describe('shopping validations', () => {
       const def = createShoppingListAddItemDefinition(false);
       expect(def.name).toBe('shopping_list_add_item');
       expect(def.inputSchema.required).toEqual(['productId']);
-      expect(def.description).toContain('all rows must correspond to an existing product');
+      expect(def.description).toContain('every shopping list row MUST correspond to an existing');
       expect(def.inputSchema.properties.productId.minimum).toBe(1);
       expect(def.inputSchema.properties.productId.description).toContain(
-        'must be a valid product ID >= 1',
+        'Required positive integer ID (>= 1)',
       );
       expect(def.inputSchema.properties.note.description).toContain(
-        'Additional notes for the product',
+        'Optional note attached to the specified product',
       );
     });
 

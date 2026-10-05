@@ -218,7 +218,7 @@ export class ShoppingToolHandlers extends BaseToolHandler {
           numProductId <= 0
         ) {
           throw new ValidationError(
-            'productId must be a valid positive integer ID of an existing product when allow_note_only is false',
+            'productId is required and must be a positive integer ID of an existing product when allow_note_only is false. Standalone notes or note-only shopping list rows are disabled. If the requested item does not exist in Grocy, inform the user that it must be added to inventory first.',
             'shopping_list_add_item',
           );
         }
@@ -240,14 +240,14 @@ export class ShoppingToolHandlers extends BaseToolHandler {
           const product = await this.apiCall(`/objects/products/${numProductId}`);
           if (!product || !product.id) {
             throw new ValidationError(
-              `Product ${numProductId} does not exist in Grocy. All shopping list rows must have a valid product.`,
+              `Product ${numProductId} does not exist in Grocy. All shopping list rows must correspond to an existing product. If the item is not in Grocy inventory, inform the user that it must be created as a product first.`,
               'shopping_list_add_item',
             );
           }
         } catch (err: any) {
           if (err instanceof ValidationError) throw err;
           throw new ValidationError(
-            `Product ${numProductId} does not exist in Grocy. All shopping list rows must have a valid product.`,
+            `Product ${numProductId} does not exist in Grocy. All shopping list rows must correspond to an existing product. If the item is not in Grocy inventory, inform the user that it must be created as a product first.`,
             'shopping_list_add_item',
           );
         }
