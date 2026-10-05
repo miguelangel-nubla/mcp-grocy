@@ -38,6 +38,7 @@ describe('shopping validations', () => {
       expect(def.name).toBe('shopping_list_add_item');
       expect(def.inputSchema.required).toEqual([]);
       expect(def.description).toContain('omit the product ID');
+      expect(def.inputSchema.properties.productId.minimum).toBe(1);
       expect(def.inputSchema.properties.productId.description).toContain('Optional');
       expect(def.inputSchema.properties.note.description).toContain(
         'Required if productId is omitted',
@@ -48,9 +49,14 @@ describe('shopping validations', () => {
       const def = createShoppingListAddItemDefinition(false);
       expect(def.name).toBe('shopping_list_add_item');
       expect(def.inputSchema.required).toEqual(['productId']);
-      expect(def.description).toContain('All shopping list rows must have a valid product');
-      expect(def.inputSchema.properties.productId.description).toBe('ID of the product to add.');
-      expect(def.inputSchema.properties.note.description).toBe('Optional. Note for the item.');
+      expect(def.description).toContain('all rows must correspond to an existing product');
+      expect(def.inputSchema.properties.productId.minimum).toBe(1);
+      expect(def.inputSchema.properties.productId.description).toContain(
+        'must be a valid product ID >= 1',
+      );
+      expect(def.inputSchema.properties.note.description).toContain(
+        'Additional notes for the product',
+      );
     });
 
     it('should generate tool definitions array via getShoppingToolDefinitions', () => {
@@ -58,6 +64,7 @@ describe('shopping validations', () => {
       const addItemDef = defs.find((d) => d.name === 'shopping_list_add_item');
       expect(addItemDef).toBeDefined();
       expect(addItemDef?.inputSchema.required).toEqual(['productId']);
+      expect(addItemDef?.inputSchema.properties.productId.minimum).toBe(1);
     });
   });
 });

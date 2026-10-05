@@ -159,4 +159,27 @@ describe('toolDefinitionInputZod through McpServer tools/call', () => {
     expect(JSON.stringify(missing.content)).toMatch(/productId/);
     expect(received).toHaveLength(1);
   });
+
+  it('enforces minimum constraint on number properties', async () => {
+    const minDef: ToolDefinition = {
+      name: 'min_test',
+      description: 'Min test',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', minimum: 1, description: 'ID >= 1' },
+        },
+        required: ['id'],
+      },
+    };
+    const minSchema = toolDefinitionInputZod(minDef);
+    expect(minSchema.parse({ id: 1 })).toEqual({ id: 1 });
+    expect(minSchema.parse({ id: '5' })).toEqual({ id: 5 });
+    expect(minSchema.safeParse({ id: 0 }).success).toBe(false);
+    expect(minSchema.safeParse({ id: -1 }).success).toBe(false);
+    expect(minSchema.safeParse({ id: 1.5 }).success).toBe(false); // integer check
+
+    const json = toJsonSchemaCompat(minSchema) as { properties: Record<string, any> };
+    expect(json.properties.id.minimum).toBe(1);
+  });
 });

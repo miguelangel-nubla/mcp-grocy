@@ -8,15 +8,16 @@ export function createShoppingListAddItemDefinition(allowNoteOnly: boolean = tru
     name: SHOPPING_LIST_ADD_ITEM_TOOL,
     description: allowNoteOnly
       ? '[SHOPPING/LIST] Add an item to a shopping list. Use inventory_products_get first to find the product ID you want to add. If multiple similar products exist or you are unsure, you can omit the product ID and just provide the item name in the note.'
-      : '[SHOPPING/LIST] Add an item to a shopping list. Use inventory_products_get first to find the product ID you want to add. All shopping list rows must have a valid product.',
+      : '[SHOPPING/LIST] Add a product to a shopping list. Note-only items are NOT allowed; all rows must correspond to an existing product in Grocy. You must first find a valid productId using inventory_products_lookup or inventory_products_get. Do not use 0 or dummy IDs.',
     inputSchema: {
       type: 'object',
       properties: {
         productId: {
-          type: 'number',
+          type: 'integer',
+          minimum: 1,
           description: allowNoteOnly
-            ? 'Optional. ID of the product to add. If a great match is found, use it. Otherwise, omit this and just specify the requested item in the note.'
-            : 'ID of the product to add.',
+            ? 'Optional. ID of the product to add (must be a valid product ID >= 1). If a great match is found, use it. Otherwise, omit this and just specify the requested item in the note.'
+            : 'ID of an existing product to add (must be a valid product ID >= 1). Dummy or 0 IDs are rejected.',
         },
         amount: {
           type: 'number',
@@ -34,7 +35,7 @@ export function createShoppingListAddItemDefinition(allowNoteOnly: boolean = tru
           type: 'string',
           description: allowNoteOnly
             ? 'Note or name of the item. Required if productId is omitted.'
-            : 'Optional. Note for the item.',
+            : 'Optional. Additional notes for the product (e.g. brand preference). Cannot be used to create note-only rows.',
         },
       },
       required: allowNoteOnly ? [] : ['productId'],

@@ -14,6 +14,7 @@ type JsonProp = {
   properties?: Record<string, JsonProp>;
   required?: string[];
   additionalProperties?: boolean | JsonProp;
+  minimum?: number;
 };
 
 function isStringTupleEnum(values: unknown[]): values is [string, ...string[]] {
@@ -46,7 +47,19 @@ function booleanStringToBoolean(value: unknown): unknown {
   return value;
 }
 
-const lenientNumber = (): z.ZodTypeAny => z.preprocess(numericStringToNumber, z.number());
+const lenientNumber = (options?: {
+  minimum?: number | undefined;
+  isInteger?: boolean | undefined;
+}): z.ZodTypeAny => {
+  let base: z.ZodNumber = z.number();
+  if (options?.isInteger) {
+    base = base.int();
+  }
+  if (options?.minimum !== undefined) {
+    base = base.min(options.minimum);
+  }
+  return z.preprocess(numericStringToNumber, base);
+};
 const lenientBoolean = (): z.ZodTypeAny => z.preprocess(booleanStringToBoolean, z.boolean());
 
 function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
@@ -63,8 +76,10 @@ function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
       break;
     }
     case 'number':
+      inner = lenientNumber({ minimum: prop.minimum });
+      break;
     case 'integer':
-      inner = lenientNumber();
+      inner = lenientNumber({ minimum: prop.minimum, isInteger: true });
       break;
     case 'boolean':
       inner = lenientBoolean();
@@ -75,8 +90,10 @@ function propertyToZod(prop: JsonProp, required: boolean): z.ZodTypeAny {
         inner = z.array(z.enum(items.enum));
       } else if (items?.type === 'string') {
         inner = z.array(z.string());
-      } else if (items?.type === 'number' || items?.type === 'integer') {
-        inner = z.array(lenientNumber());
+      } else if (items?.type === 'number') {
+        inner = z.array(lenientNumber({ minimum: items.minimum }));
+      } else if (items?.type === 'integer') {
+        inner = z.array(lenientNumber({ minimum: items.minimum, isInteger: true }));
       } else if (items?.type === 'boolean') {
         inner = z.array(lenientBoolean());
       } else {

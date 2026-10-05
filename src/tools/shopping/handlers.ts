@@ -207,15 +207,50 @@ export class ShoppingToolHandlers extends BaseToolHandler {
 
       const allowNoteOnly = effectiveSubConfigs?.get('allow_note_only') ?? true;
 
-      if (!allowNoteOnly && (productId === undefined || productId === null)) {
-        throw new ValidationError(
-          'productId is required when allow_note_only is false',
-          'shopping_list_add_item',
-        );
+      const numProductId =
+        productId !== undefined && productId !== null ? Number(productId) : undefined;
+
+      if (!allowNoteOnly) {
+        if (
+          numProductId === undefined ||
+          Number.isNaN(numProductId) ||
+          !Number.isInteger(numProductId) ||
+          numProductId <= 0
+        ) {
+          throw new ValidationError(
+            'productId must be a valid positive integer ID of an existing product when allow_note_only is false',
+            'shopping_list_add_item',
+          );
+        }
+      } else if (numProductId !== undefined) {
+        if (Number.isNaN(numProductId) || !Number.isInteger(numProductId) || numProductId <= 0) {
+          throw new ValidationError(
+            'productId must be a valid positive integer',
+            'shopping_list_add_item',
+          );
+        }
       }
 
-      if (productId === undefined && !note) {
+      if (numProductId === undefined && !note) {
         throw new Error('Either productId or note must be provided');
+      }
+
+      if (numProductId !== undefined) {
+        try {
+          const product = await this.apiCall(`/objects/products/${numProductId}`);
+          if (!product || !product.id) {
+            throw new ValidationError(
+              `Product ${numProductId} does not exist in Grocy. All shopping list rows must have a valid product.`,
+              'shopping_list_add_item',
+            );
+          }
+        } catch (err: any) {
+          if (err instanceof ValidationError) throw err;
+          throw new ValidationError(
+            `Product ${numProductId} does not exist in Grocy. All shopping list rows must have a valid product.`,
+            'shopping_list_add_item',
+          );
+        }
       }
 
       const body: any = {
@@ -224,8 +259,8 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         note,
       };
 
-      if (productId !== undefined && productId !== null) {
-        body.product_id = productId;
+      if (numProductId !== undefined) {
+        body.product_id = numProductId;
       }
 
       const result = await this.apiCall('/objects/shopping_list', 'POST', body);

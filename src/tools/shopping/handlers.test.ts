@@ -127,10 +127,12 @@ describe('ShoppingToolHandlers', () => {
 
   describe('addShoppingListItem', () => {
     it('should add shopping list item with all parameters', async () => {
+      const mockProduct = { id: 1, name: 'Milk' };
       const mockResponse = { id: 1, product_id: 1, shopping_list_id: 2 };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
       mockApiClient.request
+        .mockResolvedValueOnce({ data: mockProduct, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
@@ -173,10 +175,12 @@ describe('ShoppingToolHandlers', () => {
     });
 
     it('should add shopping list item with defaults', async () => {
+      const mockProduct = { id: 1, name: 'Milk' };
       const mockResponse = { id: 1, product_id: 1, shopping_list_id: 1 };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
       mockApiClient.request
+        .mockResolvedValueOnce({ data: mockProduct, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
@@ -270,15 +274,48 @@ describe('ShoppingToolHandlers', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain(
-        'productId is required when allow_note_only is false',
+        'productId must be a valid positive integer ID of an existing product when allow_note_only is false',
       );
     });
 
+    it('should reject productId 0 when allow_note_only is false', async () => {
+      const subConfigs = new Map<string, any>([['allow_note_only', false]]);
+      const result = await handlers.addShoppingListItem(
+        {
+          productId: 0,
+          note: 'Cable HDMI',
+        },
+        subConfigs,
+      );
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(
+        'productId must be a valid positive integer ID of an existing product when allow_note_only is false',
+      );
+    });
+
+    it('should reject non-existent product ID when allow_note_only is false', async () => {
+      mockApiClient.request.mockRejectedValueOnce(new Error('Product not found'));
+      const subConfigs = new Map<string, any>([['allow_note_only', false]]);
+      const result = await handlers.addShoppingListItem(
+        {
+          productId: 99999,
+          note: 'Cable HDMI',
+        },
+        subConfigs,
+      );
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('does not exist in Grocy');
+    });
+
     it('should allow item with product and note when allow_note_only is false', async () => {
+      const mockProduct = { id: 1, name: 'Milk' };
       const mockResponse = { id: 1, product_id: 1, shopping_list_id: 1, note: 'Get whole milk' };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
       mockApiClient.request
+        .mockResolvedValueOnce({ data: mockProduct, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
