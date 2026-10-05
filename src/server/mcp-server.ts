@@ -94,6 +94,22 @@ export class GrocyMcpServer {
     } else {
       logger.warn('No tools enabled', 'CONFIG');
     }
+
+    // Validate tool sub-configurations
+    for (const [toolName, subConfigs] of this.toolSubConfigs) {
+      const validator = this.toolRegistry.getValidator(toolName);
+      if (validator) {
+        try {
+          validator(subConfigs);
+        } catch (error: any) {
+          logger.error(
+            `Invalid sub-configuration for ${toolName}: ${error?.message || error}`,
+            'CONFIG',
+          );
+          process.exit(1);
+        }
+      }
+    }
   }
 
   private registerToolsAndResources(mcp: McpServer): void {

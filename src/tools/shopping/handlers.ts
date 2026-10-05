@@ -1,5 +1,6 @@
 import { BaseToolHandler } from '../base.js';
 import { ToolResult, ToolHandler } from '../types.js';
+import { ValidationError } from '../../utils/errors.js';
 
 export class ShoppingToolHandlers extends BaseToolHandler {
   private async getResolvedShoppingMetadata(): Promise<{
@@ -186,9 +187,32 @@ export class ShoppingToolHandlers extends BaseToolHandler {
     });
   };
 
-  public addShoppingListItem: ToolHandler = async (args: any): Promise<ToolResult> => {
+  public addShoppingListItem: ToolHandler = async (
+    args: any,
+    subConfigs?: Map<string, any>,
+  ): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const { productId, amount = 1, shoppingListId = 1, note = '' } = args || {};
+
+      let effectiveSubConfigs = subConfigs;
+      if (!effectiveSubConfigs) {
+        try {
+          const { config } = await import('../../config/index.js');
+          const { toolSubConfigs } = config.parseToolConfiguration();
+          effectiveSubConfigs = toolSubConfigs?.get('shopping_list_add_item');
+        } catch {
+          // Ignore error if config cannot be parsed
+        }
+      }
+
+      const allowNoteOnly = effectiveSubConfigs?.get('allow_note_only') ?? true;
+
+      if (!allowNoteOnly && (productId === undefined || productId === null)) {
+        throw new ValidationError(
+          'productId is required when allow_note_only is false',
+          'shopping_list_add_item',
+        );
+      }
 
       if (productId === undefined && !note) {
         throw new Error('Either productId or note must be provided');
@@ -200,7 +224,7 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         note,
       };
 
-      if (productId !== undefined) {
+      if (productId !== undefined && productId !== null) {
         body.product_id = productId;
       }
 

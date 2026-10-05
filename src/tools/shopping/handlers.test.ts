@@ -15,6 +15,15 @@ vi.mock('../../api/client.js', () => ({
   },
 }));
 
+// Mock config
+vi.mock('../../config/index.js', () => ({
+  config: {
+    parseToolConfiguration: vi.fn(() => ({
+      toolSubConfigs: new Map([['shopping_list_add_item', new Map([['allow_note_only', true]])]]),
+    })),
+  },
+}));
+
 import apiClient from '../../api/client.js';
 const mockApiClient = vi.mocked(apiClient);
 
@@ -247,6 +256,52 @@ describe('ShoppingToolHandlers', () => {
         id: 1,
         note: 'Just a note',
         shopping_list_id: 1,
+      });
+    });
+
+    it('should reject note-only item when allow_note_only is false', async () => {
+      const subConfigs = new Map<string, any>([['allow_note_only', false]]);
+      const result = await handlers.addShoppingListItem(
+        {
+          note: 'Just a note',
+        },
+        subConfigs,
+      );
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(
+        'productId is required when allow_note_only is false',
+      );
+    });
+
+    it('should allow item with product and note when allow_note_only is false', async () => {
+      const mockResponse = { id: 1, product_id: 1, shopping_list_id: 1, note: 'Get whole milk' };
+      const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
+      const mockQuantityUnits = [{ id: 4, name: 'liters' }];
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: mockResponse, status: 201, headers: {} })
+        .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
+
+      const subConfigs = new Map<string, any>([['allow_note_only', false]]);
+      const result = await handlers.addShoppingListItem(
+        {
+          productId: 1,
+          note: 'Get whole milk',
+        },
+        subConfigs,
+      );
+
+      expect(result.isError).toBeUndefined();
+      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/shopping_list', {
+        method: 'POST',
+        body: {
+          product_id: 1,
+          amount: 1,
+          shopping_list_id: 1,
+          note: 'Get whole milk',
+        },
+        queryParams: {},
       });
     });
   });

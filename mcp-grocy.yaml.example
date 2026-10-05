@@ -213,6 +213,8 @@ tools:
   shopping_list_add_item:
     enabled: true
     ack_token: BRONZE_COMET_TWIRLING
+    # When false, productId is required so rows cannot be note-only (default: true)
+    allow_note_only: true
 
   shopping_list_remove_item:
     enabled: false
