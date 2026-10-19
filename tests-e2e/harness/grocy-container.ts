@@ -11,7 +11,8 @@ export type GrocyFlavor = 'next' | 'upstream';
 
 const IMAGES: Record<GrocyFlavor, string> = {
   next: 'ghcr.io/miguelangel-nubla/grocy-next:dev-b22e8b2',
-  upstream: 'lscr.io/linuxserver/grocy:v4.7.1-ls345',
+  // ghcr.io directly: lscr.io only redirects there and rate-limits CI pulls
+  upstream: 'ghcr.io/linuxserver/grocy:v4.7.1-ls345',
 };
 
 /** grocy-next's latest migration (0258: stock QU changes need a conversion). */
@@ -45,9 +46,30 @@ export function flavorFromEnv(): GrocyFlavor {
   return flavor;
 }
 
+/** Pull unless present, retrying registry hiccups (rate limits, timeouts) with backoff. */
+async function ensureImage(image: string): Promise<void> {
+  try {
+    docker('image', 'inspect', image);
+    return;
+  } catch {
+    // not present locally
+  }
+  for (let attempt = 1; ; attempt++) {
+    try {
+      docker('pull', '-q', image);
+      return;
+    } catch (error) {
+      if (attempt >= 5) throw error;
+      await sleep(5000 * attempt);
+    }
+  }
+}
+
 export async function startGrocy(flavor: GrocyFlavor): Promise<GrocyContainer> {
   const image = process.env.E2E_GROCY_IMAGE || IMAGES[flavor];
   const name = `mcp-grocy-e2e-${flavor}-${process.pid}`;
+
+  await ensureImage(image);
 
   // TZ matches prod, so server-local time handling is exercised away from UTC
   docker(
