@@ -85,7 +85,7 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
   {
     name: 'inventory_stock_get_all',
     description:
-      '[INVENTORY/STOCK] **Full stock dump**—every stock entry in the home with stockIds. Prefer inventory_stock_get_by_product when the user names one product; prefer inventory_stock_get_by_location when they name one storage place.',
+      '[INVENTORY/STOCK] **Full stock overview**—current stock summary, one aggregated row per product (amount, opened amount, next due date). No stockIds: use inventory_stock_get_by_product for stock entry rows/stockIds. Prefer inventory_stock_get_by_product when the user names one product; prefer inventory_stock_get_by_location when they name one storage place.',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',
@@ -118,9 +118,10 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        includeDetails: {
-          type: 'boolean',
-          description: 'Whether to include additional details about each stock item',
+        dueSoonDays: {
+          type: 'number',
+          description:
+            'Window in days for "due soon" products (Grocy query parameter due_soon_days). Positive integer; defaults to 5 when omitted.',
         },
       },
       required: [],
@@ -129,7 +130,7 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
   {
     name: 'inventory_stock_get_by_location',
     description:
-      '[INVENTORY/STOCK] Everything stocked in **one storage location** (needs locationId from system_locations_get). Use when the user asks what is in the freezer/pantry—not for one named product across sites (use inventory_stock_get_by_product).',
+      '[INVENTORY/STOCK] Everything stocked in **one storage location** (needs locationId from system_locations_get). Returns stock entry rows (id, product_id, amount, dates, open, note); product names via inventory_products_get. Use when the user asks what is in the freezer/pantry—not for one named product across sites (use inventory_stock_get_by_product).',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',

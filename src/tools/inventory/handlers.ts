@@ -82,7 +82,15 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public getStockVolatile: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const queryParams = args?.includeDetails ? { include_details: 'true' } : {};
+      const { dueSoonDays } = args || {};
+      const queryParams: Record<string, string> = {};
+      if (dueSoonDays !== undefined && dueSoonDays !== null) {
+        // Grocy ignores 0/empty due_soon_days (falls back to 5), so reject them here
+        if (typeof dueSoonDays !== 'number' || !Number.isInteger(dueSoonDays) || dueSoonDays < 1) {
+          throw new ValidationError('dueSoonDays must be a positive integer', 'getStockVolatile');
+        }
+        queryParams.due_soon_days = String(dueSoonDays);
+      }
       const data = await this.apiCall('/stock/volatile', 'GET', undefined, { queryParams });
       return this.createSuccess(data);
     });
@@ -93,10 +101,26 @@ export class InventoryToolHandlers extends BaseToolHandler {
       const { locationId } = args || {};
       this.validateRequired({ locationId }, ['locationId']);
 
-      const data = await this.apiCall(`stock`, 'GET', undefined, {
-        queryParams: { 'query[]': `location_id=${locationId}` },
-      });
-      return this.createSuccess(data);
+      // GET /stock returns one aggregated row per product (no location_id), so use the
+      // dedicated location entries endpoint
+      const stockEntries = await this.apiCall(`/stock/locations/${locationId}/entries`);
+
+      const entryFields = [
+        'id',
+        'product_id',
+        'amount',
+        'best_before_date',
+        'purchased_date',
+        'stock_id',
+        'open',
+        'note',
+      ];
+
+      const filteredEntries = Array.isArray(stockEntries)
+        ? this.filterFields(stockEntries, entryFields)
+        : [];
+
+      return this.createSuccess(filteredEntries);
     });
   };
 
@@ -396,20 +420,57 @@ export class InventoryToolHandlers extends BaseToolHandler {
   ): Promise<{ stockId: any; amount: number; type: string; unit: string }[]> {
     const splitEntries: { stockId: any; amount: number; type: string; unit: string }[] = [];
 
-    if (stockAmounts.length === 1) {
-      const amount = stockAmounts[0];
-      if (typeof amount !== 'number' || amount <= 0) {
-        throw new ValidationError(`Invalid amount: ${amount}`, 'splitStockEntry');
+    // Validate every amount and their total before any write, so a bad input never leaves
+    // the lot half-split
+    stockAmounts.forEach((amount, i) => {
+      if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+        throw new ValidationError(
+          stockAmounts.length === 1
+            ? `Invalid amount: ${amount}`
+            : `Invalid amount at index ${i}: ${amount}`,
+          'splitStockEntry',
+        );
       }
+    });
+    const total = stockAmounts.reduce((sum, a) => sum + a, 0);
+    const originalAmount = Number(originalEntry.amount);
+    if (
+      originalEntry.amount !== undefined &&
+      originalEntry.amount !== null &&
+      Number.isFinite(originalAmount) &&
+      Math.abs(total - originalAmount) > 1e-6
+    ) {
+      throw new ValidationError(
+        `stockAmounts add up to ${total} but stock entry ${originalEntry.id} holds ${originalAmount}; they must match`,
+        'splitStockEntry',
+      );
+    }
+
+    // Grocy's PUT /stock/entry/{id} nulls price and shopping_location_id when omitted and
+    // sets open from the body, so carry the lot's own values over
+    const lotFields = {
+      ...(originalEntry.price !== undefined && originalEntry.price !== null
+        ? { price: originalEntry.price }
+        : {}),
+      ...(originalEntry.shopping_location_id !== undefined &&
+      originalEntry.shopping_location_id !== null
+        ? { shopping_location_id: originalEntry.shopping_location_id }
+        : {}),
+    };
+    const editBody = (amount: number, note: string) => ({
+      amount,
+      open: originalEntry.open == 1,
+      note,
+      best_before_date: originalEntry.best_before_date,
+      purchased_date: originalEntry.purchased_date,
+      location_id: originalEntry.location_id,
+      ...lotFields,
+    });
+
+    if (stockAmounts.length === 1) {
+      const amount = stockAmounts[0]!;
       const note = `${originalEntry.note || ''} - ${originalEntry.id} - 1`;
-      await this.apiCall(`/stock/entry/${originalEntry.id}`, 'PUT', {
-        amount: amount,
-        open: false,
-        note: note,
-        best_before_date: originalEntry.best_before_date,
-        purchased_date: originalEntry.purchased_date,
-        location_id: originalEntry.location_id,
-      });
+      await this.apiCall(`/stock/entry/${originalEntry.id}`, 'PUT', editBody(amount, note));
       splitEntries.push({
         stockId: originalEntry.id,
         amount: amount,
@@ -418,21 +479,11 @@ export class InventoryToolHandlers extends BaseToolHandler {
       });
     } else {
       for (let i = 0; i < stockAmounts.length; i++) {
-        const amount = stockAmounts[i];
-        if (typeof amount !== 'number' || amount <= 0) {
-          throw new ValidationError(`Invalid amount at index ${i}: ${amount}`, 'splitStockEntry');
-        }
+        const amount = stockAmounts[i]!;
         const note = `${originalEntry.note || ''} - ${originalEntry.id} - ${i + 1}`;
 
         if (i === 0) {
-          await this.apiCall(`/stock/entry/${originalEntry.id}`, 'PUT', {
-            amount: amount,
-            open: false,
-            note: note,
-            best_before_date: originalEntry.best_before_date,
-            purchased_date: originalEntry.purchased_date,
-            location_id: originalEntry.location_id,
-          });
+          await this.apiCall(`/stock/entry/${originalEntry.id}`, 'PUT', editBody(amount, note));
           splitEntries.push({
             stockId: originalEntry.id,
             amount,
@@ -447,9 +498,11 @@ export class InventoryToolHandlers extends BaseToolHandler {
               amount,
               best_before_date: originalEntry.best_before_date,
               purchased_date: originalEntry.purchased_date,
-              transaction_type: 'purchase',
+              // Not a real purchase: keep it out of price history and spending
+              transaction_type: 'self-production',
               location_id: originalEntry.location_id,
               note: note,
+              ...lotFields,
             },
           );
 

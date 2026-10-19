@@ -67,17 +67,78 @@ describe('InventoryToolHandlers', () => {
       });
     });
 
-    it('should include details when requested', async () => {
+    it('should map dueSoonDays to due_soon_days', async () => {
       const mockResponse = { data: { expired: [], due: [] }, status: 200, headers: {} };
       mockApiClient.request.mockResolvedValue(mockResponse);
 
-      await handlers.getStockVolatile({ includeDetails: true });
+      await handlers.getStockVolatile({ dueSoonDays: 14 });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/stock/volatile', {
         method: 'GET',
         body: undefined,
-        queryParams: { include_details: 'true' },
+        queryParams: { due_soon_days: '14' },
       });
+    });
+
+    it('should reject non-positive or non-integer dueSoonDays without calling the API', async () => {
+      for (const dueSoonDays of [0, -3, 2.5]) {
+        const result = await handlers.getStockVolatile({ dueSoonDays });
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('dueSoonDays must be a positive integer');
+      }
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStockByLocation', () => {
+    it('should call the location entries endpoint and return essential fields', async () => {
+      mockApiClient.request.mockResolvedValue({
+        data: [
+          {
+            id: 7,
+            product_id: 42,
+            location_id: 3,
+            amount: 2,
+            best_before_date: '2026-11-01',
+            purchased_date: '2026-10-01',
+            stock_id: 'abc',
+            open: 0,
+            note: null,
+            price: 1.5,
+            row_created_timestamp: '2026-10-01 10:00:00',
+          },
+        ],
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.getStockByLocation({ locationId: 3 });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/stock/locations/3/entries', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {},
+      });
+      expect(result.isError).toBeFalsy();
+      expect(result.structuredContent?.data).toEqual([
+        {
+          id: 7,
+          product_id: 42,
+          amount: 2,
+          best_before_date: '2026-11-01',
+          purchased_date: '2026-10-01',
+          stock_id: 'abc',
+          open: 0,
+          note: null,
+        },
+      ]);
+    });
+
+    it('should require locationId', async () => {
+      const result = await handlers.getStockByLocation({});
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Missing required parameters: locationId');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
     });
   });
 
@@ -743,10 +804,14 @@ describe('InventoryToolHandlers', () => {
     it('should split single amount correctly', async () => {
       const mockOriginalEntry = {
         id: 123,
+        amount: 5,
         note: 'Original note',
         best_before_date: '2024-12-31',
         purchased_date: '2024-01-01',
         location_id: 1,
+        price: 2.5,
+        shopping_location_id: 9,
+        open: 1,
       };
       const mockUpdateResponse = { data: { success: true }, status: 200, headers: {} };
 
@@ -759,11 +824,13 @@ describe('InventoryToolHandlers', () => {
         method: 'PUT',
         body: {
           amount: 5,
-          open: false,
+          open: true,
           note: 'Original note - 123 - 1',
           best_before_date: '2024-12-31',
           purchased_date: '2024-01-01',
           location_id: 1,
+          price: 2.5,
+          shopping_location_id: 9,
         },
         queryParams: {},
       });
@@ -782,10 +849,14 @@ describe('InventoryToolHandlers', () => {
       const mockOriginalEntry = {
         id: 123,
         product_id: 456,
+        amount: 5,
         note: 'Original note',
         best_before_date: '2024-12-31',
         purchased_date: '2024-01-01',
         location_id: 1,
+        price: 2.5,
+        shopping_location_id: null,
+        open: 0,
       };
       const mockUpdateResponse = { data: { success: true }, status: 200, headers: {} };
       const mockCreateResponse = [{ stock_id: 'new123', id: 'new123' }];
@@ -818,6 +889,54 @@ describe('InventoryToolHandlers', () => {
         type: 'created',
         unit: 'pieces',
       });
+
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(1, '/stock/entry/123', {
+        method: 'PUT',
+        body: {
+          amount: 3,
+          open: false,
+          note: 'Original note - 123 - 1',
+          best_before_date: '2024-12-31',
+          purchased_date: '2024-01-01',
+          location_id: 1,
+          price: 2.5,
+        },
+        queryParams: {},
+      });
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(2, '/stock/products/456/add', {
+        method: 'POST',
+        body: {
+          amount: 2,
+          best_before_date: '2024-12-31',
+          purchased_date: '2024-01-01',
+          transaction_type: 'self-production',
+          location_id: 1,
+          note: 'Original note - 123 - 2',
+          price: 2.5,
+        },
+        queryParams: {},
+      });
+    });
+
+    it('should reject amounts that do not add up to the entry amount before any write', async () => {
+      const mockOriginalEntry = { id: 123, product_id: 456, amount: 4 };
+      const getUnitForm = () => 'pieces';
+
+      await expect(
+        handlers.splitStockEntry(mockOriginalEntry, [3, 3], getUnitForm),
+      ).rejects.toThrow('stockAmounts add up to 6 but stock entry 123 holds 4');
+      await expect(handlers.splitStockEntry(mockOriginalEntry, [2], getUnitForm)).rejects.toThrow(
+        'stockAmounts add up to 2 but stock entry 123 holds 4',
+      );
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should validate all amounts before writing anything', async () => {
+      const getUnitForm = () => 'pieces';
+      await expect(
+        handlers.splitStockEntry({ id: 123, product_id: 456 }, [2, 0], getUnitForm),
+      ).rejects.toThrow('Invalid amount at index 1: 0');
+      expect(mockApiClient.request).not.toHaveBeenCalled();
     });
 
     it('should handle invalid amounts', async () => {
