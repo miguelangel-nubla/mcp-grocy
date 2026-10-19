@@ -195,9 +195,11 @@ describe('inventory stock queries and stock entries', () => {
       });
 
       it('dueSoonDays narrows and widens the due-soon window', async () => {
+        // Grocy anchors the window on SQLite's date('now', 'N days'), which is UTC: between
+        // midnight and the UTC offset (00:00-02:00 in Madrid) the due-in-3 lot is 4 days out
         const narrow = await mcp.ok('inventory_stock_get_volatile', { dueSoonDays: 1 });
         expect(ids(narrow.data.due_products)).not.toContain(dueIn3);
-        const wide = await mcp.ok('inventory_stock_get_volatile', { dueSoonDays: 3 });
+        const wide = await mcp.ok('inventory_stock_get_volatile', { dueSoonDays: 4 });
         expect(ids(wide.data.due_products)).toContain(dueIn3);
       });
 
