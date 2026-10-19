@@ -1,6 +1,21 @@
 # Default: official Node 22 Alpine (exact runtime). Home Assistant addons override via build.yaml.
 ARG BUILD_FROM=node:22-alpine
 
+# --- Builder: install and compile on the build machine's native platform ---
+# The production dependencies are plain JavaScript (no native modules), so node_modules and
+# build/ are the same for every target platform. Building them natively keeps npm out of QEMU:
+# an emulated arm64 `npm install` used to hang until the CI job timed out.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --ignore-scripts --legacy-peer-deps
+
+COPY . .
+ARG RELEASE_VERSION
+ENV RELEASE_VERSION=${RELEASE_VERSION}
+RUN npm run build && npm prune --omit=dev --ignore-scripts --legacy-peer-deps
+
 
 FROM $BUILD_FROM AS base
 ARG NODE_VERSION=22 # Default Node.js version for addon OS setup
@@ -26,16 +41,6 @@ else \
     rm -rf /tmp/* /var/tmp/*; \
 fi
 
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
-
-# Install dependencies but skip the prepare script which runs build
-# We set fetch-retry-maxtimeout and --maxsockets 1 to prevent QEMU network hangs when building for arm64 on amd64
-RUN npm config set fetch-retry-maxtimeout 600000 -g && \
-    npm config set legacy-peer-deps true -g && \
-    npm install --ignore-scripts --maxsockets 1
-
 # COPY . . should come before conditional rootfs copy if rootfs might overlay app files,
 # or after if app files might overlay rootfs defaults.
 # Assuming app files are primary, then addon specifics overlay.
@@ -54,9 +59,10 @@ RUN if echo "$BUILD_FROM" | grep -q "home-assistant"; then \
     echo "docker build: Skipping rootfs copy."; \
   fi
 
-ARG RELEASE_VERSION
-ENV RELEASE_VERSION=${RELEASE_VERSION}
-RUN npm run build
+# Production dependencies and compiled server from the builder
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/build ./build
 
 
 # --- Entrypoint & Command ---
