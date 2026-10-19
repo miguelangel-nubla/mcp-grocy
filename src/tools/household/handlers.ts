@@ -15,10 +15,14 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const { choreId, executedBy, trackedTime, skipped } = args || {};
       this.validateRequired({ choreId }, ['choreId']);
+      // Chores also accept a date only (Grocy checks IsIsoDate as well as IsIsoDateTime).
+      const trackedTimeValue = this.parseGrocyDateTimeParam(trackedTime, 'trackedTime', {
+        allowDateOnly: true,
+      });
 
       // Omit tracked_time when not given so Grocy uses its own server-local current time.
       const body = {
-        ...(trackedTime ? { tracked_time: trackedTime } : {}),
+        ...(trackedTimeValue ? { tracked_time: trackedTimeValue } : {}),
         ...(executedBy ? { done_by: executedBy } : {}),
         ...(skipped ? { skipped: true } : {}),
       };
@@ -41,11 +45,12 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const { taskId, doneTime } = args || {};
       this.validateRequired({ taskId }, ['taskId']);
+      const doneTimeValue = this.parseGrocyDateTimeParam(doneTime, 'doneTime');
 
       const result = await this.apiCall(
         `/tasks/${taskId}/complete`,
         'POST',
-        doneTime ? { done_time: doneTime } : {},
+        doneTimeValue ? { done_time: doneTimeValue } : {},
       );
       return this.createSuccess(result, 'Task completed successfully');
     });
@@ -64,10 +69,11 @@ export class HouseholdToolHandlers extends BaseToolHandler {
     return this.executeToolHandler(async () => {
       const { batteryId, trackedTime } = args || {};
       this.validateRequired({ batteryId }, ['batteryId']);
+      const trackedTimeValue = this.parseGrocyDateTimeParam(trackedTime, 'trackedTime');
 
       // Omit tracked_time when not given so Grocy uses its own server-local current time.
       const body = {
-        ...(trackedTime ? { tracked_time: trackedTime } : {}),
+        ...(trackedTimeValue ? { tracked_time: trackedTimeValue } : {}),
       };
 
       const result = await this.apiCall(`/batteries/${batteryId}/charge`, 'POST', body);

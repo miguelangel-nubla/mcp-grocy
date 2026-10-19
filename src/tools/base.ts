@@ -203,6 +203,69 @@ export abstract class BaseToolHandler {
   }
 
   /**
+   * Parse an optional Grocy server-local timestamp. Grocy silently replaces a value that fails
+   * its own check with "now", so anything it would reject must be refused here instead.
+   * Accepts "YYYY-MM-DD HH:mm:ss", normalizes "YYYY-MM-DDTHH:mm:ss" to it, and (only when
+   * allowDateOnly is set, for endpoints that also accept IsIsoDate) passes "YYYY-MM-DD" through.
+   * No timezone conversion is done: Grocy interprets the value in its server-local time.
+   * Returns undefined when the value is absent (undefined, null or empty string).
+   */
+  protected parseGrocyDateTimeParam(
+    value: unknown,
+    paramName: string,
+    options: { allowDateOnly?: boolean } = {},
+  ): string | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const expected = options.allowDateOnly
+      ? 'YYYY-MM-DD HH:mm:ss or YYYY-MM-DD'
+      : 'YYYY-MM-DD HH:mm:ss';
+    const invalid = () =>
+      new ValidationError(
+        `${paramName} must be in ${expected} format (Grocy server-local time, no timezone), got: ${JSON.stringify(value)}`,
+      );
+
+    if (typeof value !== 'string') {
+      throw invalid();
+    }
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2}))?$/.exec(value);
+    if (!match) {
+      throw invalid();
+    }
+    const [, y, mo, d, h, mi, s] = match;
+    const hasTime = h !== undefined;
+    if (!hasTime && !options.allowDateOnly) {
+      throw invalid();
+    }
+
+    const year = Number(y);
+    const month = Number(mo);
+    const day = Number(d);
+    // Date.UTC is only used to check the calendar date; no timezone is applied to the value.
+    const check = new Date(Date.UTC(year, month - 1, day));
+    if (
+      month < 1 ||
+      month > 12 ||
+      check.getUTCFullYear() !== year ||
+      check.getUTCMonth() !== month - 1 ||
+      check.getUTCDate() !== day
+    ) {
+      throw invalid();
+    }
+
+    if (!hasTime) {
+      return `${y}-${mo}-${d}`;
+    }
+    if (Number(h) > 23 || Number(mi) > 59 || Number(s) > 59) {
+      throw invalid();
+    }
+    return `${y}-${mo}-${d} ${h}:${mi}:${s}`;
+  }
+
+  /**
    * Parse and validate numeric parameter
    */
   protected parseNumberParam(value: any, paramName: string, required = true): number | undefined {

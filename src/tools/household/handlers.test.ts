@@ -130,6 +130,43 @@ describe('HouseholdToolHandlers', () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Missing required parameters: choreId');
     });
+
+    it.each([
+      ['2026-01-15T08:00:00', '2026-01-15 08:00:00'],
+      ['2026-01-15 08:00:00', '2026-01-15 08:00:00'],
+      ['2026-01-15', '2026-01-15'],
+    ])('should send trackedTime %s as %s', async (input, sent) => {
+      mockApiClient.request.mockResolvedValue({ data: { id: 1 }, status: 200, headers: {} });
+
+      const result = await handlers.trackChoreExecution({ choreId: 1, trackedTime: input });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockApiClient.request).toHaveBeenCalledWith('/chores/1/execute', {
+        method: 'POST',
+        body: { tracked_time: sent },
+        queryParams: {},
+      });
+    });
+
+    it.each([
+      '2026-01-15T08:00:00Z',
+      '2026-01-15T08:00:00+02:00',
+      '2026-01-15 08:00',
+      '15/01/2026',
+      '2026-02-30 10:00:00',
+      '2026-13-01',
+      '2026-01-15 24:00:00',
+      'yesterday',
+      12345,
+    ])('should reject trackedTime %s without calling Grocy', async (input) => {
+      const result = await handlers.trackChoreExecution({ choreId: 1, trackedTime: input });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(
+        'trackedTime must be in YYYY-MM-DD HH:mm:ss or YYYY-MM-DD format',
+      );
+      expect(mockApiClient.request).not.toHaveBeenCalled();
+    });
   });
 
   describe('getTasks', () => {
@@ -222,6 +259,30 @@ describe('HouseholdToolHandlers', () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Missing required parameters: taskId');
     });
+
+    it('should normalize an ISO-8601 doneTime', async () => {
+      mockApiClient.request.mockResolvedValue({ data: { id: 1 }, status: 200, headers: {} });
+
+      const result = await handlers.completeTask({ taskId: 1, doneTime: '2026-05-04T09:10:11' });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockApiClient.request).toHaveBeenCalledWith('/tasks/1/complete', {
+        method: 'POST',
+        body: { done_time: '2026-05-04 09:10:11' },
+        queryParams: {},
+      });
+    });
+
+    it.each(['2026-05-04', '2026-02-29 10:00:00', '2026-05-04 09:10:11.123'])(
+      'should reject doneTime %s without calling Grocy',
+      async (input) => {
+        const result = await handlers.completeTask({ taskId: 1, doneTime: input });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('doneTime must be in YYYY-MM-DD HH:mm:ss format');
+        expect(mockApiClient.request).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('getBatteries', () => {
@@ -315,6 +376,46 @@ describe('HouseholdToolHandlers', () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Missing required parameters: batteryId');
     });
+
+    it('should normalize an ISO-8601 trackedTime', async () => {
+      mockApiClient.request.mockResolvedValue({ data: { id: 1 }, status: 200, headers: {} });
+
+      const result = await handlers.chargeBattery({
+        batteryId: 1,
+        trackedTime: '2026-06-07T20:21:22',
+      });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockApiClient.request).toHaveBeenCalledWith('/batteries/1/charge', {
+        method: 'POST',
+        body: { tracked_time: '2026-06-07 20:21:22' },
+        queryParams: {},
+      });
+    });
+
+    it('should accept Feb 29 in a leap year', async () => {
+      mockApiClient.request.mockResolvedValue({ data: { id: 1 }, status: 200, headers: {} });
+
+      const result = await handlers.chargeBattery({
+        batteryId: 1,
+        trackedTime: '2028-02-29 23:59:59',
+      });
+
+      expect(result.isError).toBeUndefined();
+    });
+
+    it.each(['2026-06-07', '2026-06-07 20:60:00', '2026-06-31 10:00:00'])(
+      'should reject trackedTime %s without calling Grocy',
+      async (input) => {
+        const result = await handlers.chargeBattery({ batteryId: 1, trackedTime: input });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain(
+          'trackedTime must be in YYYY-MM-DD HH:mm:ss format',
+        );
+        expect(mockApiClient.request).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('getEquipment', () => {

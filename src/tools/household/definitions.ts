@@ -30,7 +30,7 @@ export const householdToolDefinitions = [
         trackedTime: {
           type: 'string',
           description:
-            "Time when the chore was executed in YYYY-MM-DD HH:mm:ss format (optional, defaults to the Grocy server's current local time)",
+            "Time when the chore was executed, in the Grocy server's local time (no timezone): YYYY-MM-DD HH:mm:ss, or YYYY-MM-DD for the date only. YYYY-MM-DDTHH:mm:ss is converted; any other format is rejected. Optional, defaults to the Grocy server's current local time. A time that does not exist in the server's timezone (skipped by a DST change, e.g. 02:30 on the spring-forward day) is also silently replaced with now by Grocy, so avoid those.",
         },
         skipped: {
           type: 'boolean',
@@ -68,7 +68,7 @@ export const householdToolDefinitions = [
         doneTime: {
           type: 'string',
           description:
-            "Time when the task was completed in YYYY-MM-DD HH:mm:ss format (optional, defaults to the Grocy server's current local time)",
+            "Time when the task was completed, in the Grocy server's local time (no timezone): YYYY-MM-DD HH:mm:ss. YYYY-MM-DDTHH:mm:ss is converted; any other format, including a date only, is rejected. Optional, defaults to the Grocy server's current local time. A time that does not exist in the server's timezone (skipped by a DST change, e.g. 02:30 on the spring-forward day) is also silently replaced with now by Grocy, so avoid those.",
         },
       },
       required: ['taskId'],
@@ -100,7 +100,7 @@ export const householdToolDefinitions = [
         trackedTime: {
           type: 'string',
           description:
-            "Time when the battery was charged in YYYY-MM-DD HH:mm:ss format (optional, defaults to the Grocy server's current local time)",
+            "Time when the battery was charged, in the Grocy server's local time (no timezone): YYYY-MM-DD HH:mm:ss. YYYY-MM-DDTHH:mm:ss is converted; any other format, including a date only, is rejected. Optional, defaults to the Grocy server's current local time. A time that does not exist in the server's timezone (skipped by a DST change, e.g. 02:30 on the spring-forward day) is also silently replaced with now by Grocy, so avoid those.",
         },
       },
       required: ['batteryId'],
