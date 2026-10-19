@@ -137,8 +137,10 @@ export function getShoppingToolDefinitions(overrideAllowNoteOnly?: boolean): Too
               'ID of the shopping list item to update. Use shopping_list_get tool to find the correct shopping list item ID by looking at the "id" field in the results.',
           },
           productId: {
-            type: 'number',
-            description: 'Optional. Product ID if you want to change it.',
+            type: 'integer',
+            minimum: 1,
+            description:
+              "Optional. ID of an existing product (>= 1) to change the item to. The unit shown is reset to that product's stock unit.",
           },
           amount: {
             type: 'number',

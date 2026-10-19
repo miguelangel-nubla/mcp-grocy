@@ -192,7 +192,7 @@ export class ShoppingToolHandlers extends BaseToolHandler {
     subConfigs?: Map<string, any>,
   ): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { productId, amount = 1, shoppingListId = 1, note = '' } = args || {};
+      const { productId, amount = 0, shoppingListId = 1, note = '' } = args || {};
 
       let effectiveSubConfigs = subConfigs;
       if (!effectiveSubConfigs) {
@@ -289,21 +289,44 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         throw new Error(`Shopping list item ${shoppingListItemId} not found`);
       }
 
-      const body = {
-        ...existingItem,
-      };
+      // Grocy's PUT is a partial update; send only the changed columns (the GET adds a
+      // `userfields` key that is not a column and would fail the update)
+      const body: Record<string, unknown> = {};
 
-      if (productId !== undefined) body.product_id = productId;
+      if (productId !== undefined) {
+        const numProductId = productId === null ? NaN : Number(productId);
+        if (Number.isNaN(numProductId) || !Number.isInteger(numProductId) || numProductId <= 0) {
+          throw new ValidationError(
+            'productId must be a valid positive integer ID of an existing product',
+            'shopping_list_update_item',
+          );
+        }
+        let product: any;
+        try {
+          product = await this.apiCall(`/objects/products/${numProductId}`);
+        } catch {
+          product = undefined;
+        }
+        if (!product || !product.id) {
+          throw new ValidationError(
+            `Product ${numProductId} does not exist in Grocy. All shopping list rows must correspond to an existing product. If the item is not in Grocy inventory, inform the user that it must be created as a product first.`,
+            'shopping_list_update_item',
+          );
+        }
+        if (Number(existingItem.product_id) !== numProductId) {
+          // amount is stored in the stock unit; the old product's display unit may not apply
+          body.qu_id = product.qu_id_stock;
+        }
+        body.product_id = numProductId;
+      }
       if (amount !== undefined) body.amount = amount;
       if (shoppingListId !== undefined) body.shopping_list_id = shoppingListId;
       if (note !== undefined) body.note = note;
 
-      const result = await this.apiCall(
-        `/objects/shopping_list/${shoppingListItemId}`,
-        'PUT',
-        body,
-      );
-      const enriched = await this.enrichShoppingListResponse(result);
+      await this.apiCall(`/objects/shopping_list/${shoppingListItemId}`, 'PUT', body);
+      // The PUT answers 204 with no body; read the row back to return it
+      const updated = await this.apiCall(`/objects/shopping_list/${shoppingListItemId}`);
+      const enriched = await this.enrichShoppingListResponse(updated);
       return this.createSuccess(enriched, 'Shopping list item updated successfully');
     });
   };
@@ -311,11 +334,12 @@ export class ShoppingToolHandlers extends BaseToolHandler {
   public printShoppingListThermal: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
       const { shoppingListId } = args || {};
-      const endpoint =
-        shoppingListId !== undefined
-          ? `/print/shoppinglist/thermal?list_id=${shoppingListId}`
-          : '/print/shoppinglist/thermal';
-      const result = await this.apiCall(endpoint);
+      // Grocy reads the list id from the `list` query parameter (default 1).
+      const queryParams: Record<string, string> =
+        shoppingListId !== undefined ? { list: String(shoppingListId) } : {};
+      const result = await this.apiCall('/print/shoppinglist/thermal', 'GET', undefined, {
+        queryParams,
+      });
       return this.createSuccess(result, 'Shopping list sent to thermal printer successfully');
     });
   };

@@ -193,7 +193,7 @@ describe('ShoppingToolHandlers', () => {
         method: 'POST',
         body: {
           product_id: 1,
-          amount: 1,
+          amount: 0,
           shopping_list_id: 1,
           note: '',
         },
@@ -249,7 +249,7 @@ describe('ShoppingToolHandlers', () => {
       expect(mockApiClient.request).toHaveBeenCalledWith('/objects/shopping_list', {
         method: 'POST',
         body: {
-          amount: 1,
+          amount: 0,
           shopping_list_id: 1,
           note: 'Just a note',
         },
@@ -334,7 +334,7 @@ describe('ShoppingToolHandlers', () => {
         method: 'POST',
         body: {
           product_id: 1,
-          amount: 1,
+          amount: 0,
           shopping_list_id: 1,
           note: 'Get whole milk',
         },
@@ -388,6 +388,7 @@ describe('ShoppingToolHandlers', () => {
         amount: 2,
         shopping_list_id: 1,
         note: 'Old note',
+        userfields: null,
       };
       const mockProducts = [{ id: 1, name: 'Milk', description: 'Whole milk', qu_id_stock: 4 }];
       const mockQuantityUnits = [{ id: 4, name: 'liters' }];
@@ -401,6 +402,7 @@ describe('ShoppingToolHandlers', () => {
 
       mockApiClient.request
         .mockResolvedValueOnce({ data: mockExistingItem, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: '', status: 204, headers: {} })
         .mockResolvedValueOnce({ data: mockResponse, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockProducts, status: 200, headers: {} })
         .mockResolvedValueOnce({ data: mockQuantityUnits, status: 200, headers: {} });
@@ -416,15 +418,15 @@ describe('ShoppingToolHandlers', () => {
         queryParams: {},
       });
 
+      // Only the changed column is sent (never the GET's `userfields`)
       expect(mockApiClient.request).toHaveBeenNthCalledWith(2, '/objects/shopping_list/1', {
         method: 'PUT',
-        body: {
-          id: 1,
-          product_id: 1,
-          amount: 2,
-          shopping_list_id: 1,
-          note: 'New note',
-        },
+        body: { note: 'New note' },
+        queryParams: {},
+      });
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(3, '/objects/shopping_list/1', {
+        method: 'GET',
+        body: undefined,
         queryParams: {},
       });
       expect(result.isError).toBeUndefined();
@@ -446,6 +448,71 @@ describe('ShoppingToolHandlers', () => {
           id: 4,
           name: 'liters',
         },
+      });
+    });
+
+    it('should reject productId 0 without sending a PUT', async () => {
+      mockApiClient.request.mockResolvedValueOnce({
+        data: { id: 5, product_id: 1, amount: 1, shopping_list_id: 1, qu_id: 4 },
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.updateShoppingListItem({ shoppingListItemId: 5, productId: 0 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('positive integer');
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should reject a non-existent productId without sending a PUT', async () => {
+      mockApiClient.request
+        .mockResolvedValueOnce({
+          data: { id: 5, product_id: 1, amount: 1, shopping_list_id: 1, qu_id: 4 },
+          status: 200,
+          headers: {},
+        })
+        .mockRejectedValueOnce(new Error('Not found'));
+
+      const result = await handlers.updateShoppingListItem({
+        shoppingListItemId: 5,
+        productId: 99999,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Product 99999 does not exist');
+      expect(mockApiClient.request).toHaveBeenCalledTimes(2);
+      expect(mockApiClient.request).not.toHaveBeenCalledWith(
+        '/objects/shopping_list/5',
+        expect.objectContaining({ method: 'PUT' }),
+      );
+    });
+
+    it('should reset qu_id to the new product stock unit when the product changes', async () => {
+      const existing = { id: 5, product_id: 1, amount: 2, shopping_list_id: 1, qu_id: 4, note: '' };
+      mockApiClient.request
+        .mockResolvedValueOnce({ data: existing, status: 200, headers: {} })
+        .mockResolvedValueOnce({
+          data: { id: 2, name: 'Eggs', qu_id_stock: 7 },
+          status: 200,
+          headers: {},
+        })
+        .mockResolvedValueOnce({ data: '', status: 204, headers: {} })
+        .mockResolvedValueOnce({
+          data: { ...existing, product_id: 2, qu_id: 7 },
+          status: 200,
+          headers: {},
+        })
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: [], status: 200, headers: {} });
+
+      const result = await handlers.updateShoppingListItem({ shoppingListItemId: 5, productId: 2 });
+
+      expect(result.isError).toBeUndefined();
+      expect(mockApiClient.request).toHaveBeenCalledWith('/objects/shopping_list/5', {
+        method: 'PUT',
+        body: { product_id: 2, qu_id: 7 },
+        queryParams: {},
       });
     });
 
@@ -505,6 +572,22 @@ describe('ShoppingToolHandlers', () => {
       expect(result.content[0].text).toContain(
         'Shopping list sent to thermal printer successfully',
       );
+    });
+
+    it('should pass the shopping list id as the `list` query parameter', async () => {
+      mockApiClient.request.mockResolvedValueOnce({
+        data: { result: 'OK' },
+        status: 200,
+        headers: {},
+      });
+
+      await handlers.printShoppingListThermal({ shoppingListId: 2 });
+
+      expect(mockApiClient.request).toHaveBeenCalledWith('/print/shoppinglist/thermal', {
+        method: 'GET',
+        body: undefined,
+        queryParams: { list: '2' },
+      });
     });
   });
 
