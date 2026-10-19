@@ -4,6 +4,7 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import apiClient from '../../api/client.js';
 import { config } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
+import { AppError } from '../../utils/errors.js';
 import { refuseRawWrite } from './write-guard.js';
 
 export class SystemToolHandlers extends BaseToolHandler {
@@ -154,50 +155,62 @@ export class SystemToolHandlers extends BaseToolHandler {
     const requestHeaders = { ...config.getCustomHeaders(), ...headers };
     const safeRequestHeaders = this.redactHeaders(requestHeaders);
 
+    const request = {
+      url: `${config.grocy.base_url}${normalizedEndpoint}`,
+      method,
+      headers: safeRequestHeaders,
+      body,
+      authMethod: config.grocy.api_key ? 'apikey' : 'none',
+    };
+    const startTime = Date.now();
+
     try {
-      const startTime = Date.now();
       const response = await apiClient.request(normalizedEndpoint, {
         method,
         body,
         headers: requestHeaders,
       });
-      const endTime = Date.now();
       const responseWithLimit = this.applyResponseSizeLimit(response.data);
 
-      const responseObj = {
-        request: {
-          url: `${config.grocy.base_url}${normalizedEndpoint}`,
-          method,
-          headers: safeRequestHeaders,
-          body,
-          authMethod: config.grocy.api_key ? 'apikey' : 'none',
-        },
+      return this.createSuccess({
+        request,
         response: {
           statusCode: response.status,
-          timing: `${endTime - startTime}ms`,
+          timing: `${Date.now() - startTime}ms`,
           headers: response.headers,
           body: responseWithLimit.body,
         },
         validation: {
-          isError: response.status >= 400,
-          messages:
-            response.status >= 400
-              ? [`Request failed with status ${response.status}`]
-              : ['Request completed successfully'],
+          isError: false,
+          messages: ['Request completed successfully'],
           ...(responseWithLimit.truncated ? { truncated: responseWithLimit.truncated } : {}),
         },
-      };
-
-      return this.createSuccess(responseObj);
-    } catch (error: any) {
-      return this.createError(`Test request failed: ${error.message}`, {
-        request: {
-          url: `${config.grocy.base_url}${normalizedEndpoint}`,
-          method,
-          headers: safeRequestHeaders,
-          body,
-        },
       });
+    } catch (error: any) {
+      // The client throws an ApiError on any status >= 400; report Grocy's answer as the tool documents.
+      if (error instanceof AppError && error.category === 'API' && error.statusCode !== undefined) {
+        const responseData = error.details?.responseData;
+        const responseWithLimit = this.applyResponseSizeLimit(responseData ?? null);
+        const grocyMessage =
+          responseData && typeof responseData === 'object' ? responseData.error_message : undefined;
+        return this.createSuccess({
+          request,
+          response: {
+            statusCode: error.statusCode,
+            timing: `${Date.now() - startTime}ms`,
+            body: responseWithLimit.body,
+          },
+          validation: {
+            isError: true,
+            messages: [
+              `Request failed with status ${error.statusCode}`,
+              ...(grocyMessage ? [String(grocyMessage)] : []),
+            ],
+            ...(responseWithLimit.truncated ? { truncated: responseWithLimit.truncated } : {}),
+          },
+        });
+      }
+      return this.createError(`Test request failed: ${error.message}`, { request });
     }
   };
 }

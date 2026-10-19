@@ -71,6 +71,7 @@ vi.mock('../../utils/logger.js', () => ({
 import { SystemToolHandlers } from './handlers.js';
 import apiClient from '../../api/client.js';
 import { logger } from '../../utils/logger.js';
+import { ApiError } from '../../utils/errors.js';
 
 const mockApiClient = vi.mocked(apiClient);
 const mockLogger = vi.mocked(logger);
@@ -397,6 +398,36 @@ describe('SystemToolHandlers', () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Test request failed: Network error');
+    });
+
+    it('reports the status code and Grocy error body of a failed request', async () => {
+      mockApiClient.request.mockRejectedValue(
+        new ApiError('HTTP 400 error', 400, 'POST /api/objects/products', {
+          responseData: { error_message: 'NOT NULL constraint failed: products.name' },
+        }),
+      );
+
+      const result = await handlers.testRequest({
+        method: 'POST',
+        endpoint: 'objects/products',
+        body: {},
+      });
+
+      expect(result.isError).toBeUndefined();
+      const responseData = result.structuredContent?.data as any;
+      expect(responseData).toMatchObject({
+        request: { url: 'http://localhost:9283/objects/products', method: 'POST', body: {} },
+        response: {
+          statusCode: 400,
+          body: { error_message: 'NOT NULL constraint failed: products.name' },
+        },
+        validation: {
+          isError: true,
+          messages: ['Request failed with status 400', 'NOT NULL constraint failed: products.name'],
+        },
+      });
+      expect(responseData.request.headers['GROCY-API-KEY']).toBe('[REDACTED]');
+      expect(responseData.response.timing).toMatch(/^\d+ms$/);
     });
   });
 });
