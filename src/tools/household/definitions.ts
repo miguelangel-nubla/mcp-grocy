@@ -30,11 +30,12 @@ export const householdToolDefinitions = [
         trackedTime: {
           type: 'string',
           description:
-            'Time when the chore was executed in YYYY-MM-DD HH:mm:ss format (optional, defaults to current time)',
+            "Time when the chore was executed in YYYY-MM-DD HH:mm:ss format (optional, defaults to the Grocy server's current local time)",
         },
-        note: {
-          type: 'string',
-          description: 'Optional note for the chore execution',
+        skipped: {
+          type: 'boolean',
+          description:
+            'Set true to record the chore as skipped rather than done (optional, defaults to false)',
         },
       },
       required: ['choreId'],
@@ -64,9 +65,10 @@ export const householdToolDefinitions = [
           description:
             'ID of the task to complete. Use household_tasks_get tool to find the correct task ID.',
         },
-        note: {
+        doneTime: {
           type: 'string',
-          description: 'Optional note for the task completion',
+          description:
+            "Time when the task was completed in YYYY-MM-DD HH:mm:ss format (optional, defaults to the Grocy server's current local time)",
         },
       },
       required: ['taskId'],
@@ -98,11 +100,7 @@ export const householdToolDefinitions = [
         trackedTime: {
           type: 'string',
           description:
-            'Time when the battery was charged in YYYY-MM-DD HH:mm:ss format (optional, defaults to current time)',
-        },
-        note: {
-          type: 'string',
-          description: 'Optional note for the battery charge',
+            "Time when the battery was charged in YYYY-MM-DD HH:mm:ss format (optional, defaults to the Grocy server's current local time)",
         },
       },
       required: ['batteryId'],

@@ -78,7 +78,7 @@ describe('HouseholdToolHandlers', () => {
         choreId: 1,
         executedBy: 'John',
         trackedTime: '2024-01-15 10:00:00',
-        note: 'Completed thoroughly',
+        skipped: true,
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/chores/1/execute', {
@@ -86,7 +86,7 @@ describe('HouseholdToolHandlers', () => {
         body: {
           tracked_time: '2024-01-15 10:00:00',
           done_by: 'John',
-          note: 'Completed thoroughly',
+          skipped: true,
         },
         queryParams: {},
       });
@@ -104,13 +104,14 @@ describe('HouseholdToolHandlers', () => {
 
       const result = await handlers.trackChoreExecution({
         choreId: 1,
+        note: 'ignored',
       });
 
+      // No client-side timestamp: Grocy uses its own server-local current time.
+      // note is not supported by Grocy and must not be sent.
       expect(mockApiClient.request).toHaveBeenCalledWith('/chores/1/execute', {
         method: 'POST',
-        body: {
-          tracked_time: '2024-01-15 10:30:00',
-        },
+        body: {},
         queryParams: {},
       });
       expect(result.isError).toBeUndefined();
@@ -163,7 +164,7 @@ describe('HouseholdToolHandlers', () => {
   });
 
   describe('completeTask', () => {
-    it('should complete task with note', async () => {
+    it('should complete task with doneTime', async () => {
       const mockResponse = { id: 1, completed: true };
       mockApiClient.request.mockResolvedValue({
         data: mockResponse,
@@ -173,13 +174,14 @@ describe('HouseholdToolHandlers', () => {
 
       const result = await handlers.completeTask({
         taskId: 1,
-        note: 'Task completed successfully',
+        doneTime: '2024-01-15 10:00:00',
+        note: 'ignored',
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/tasks/1/complete', {
         method: 'POST',
         body: {
-          note: 'Task completed successfully',
+          done_time: '2024-01-15 10:00:00',
         },
         queryParams: {},
       });
@@ -187,7 +189,7 @@ describe('HouseholdToolHandlers', () => {
       expect(result.content[0].text).toContain('Task completed successfully');
     });
 
-    it('should complete task without note', async () => {
+    it('should complete task without doneTime', async () => {
       const mockResponse = { id: 1, completed: true };
       mockApiClient.request.mockResolvedValue({
         data: mockResponse,
@@ -265,14 +267,13 @@ describe('HouseholdToolHandlers', () => {
       const result = await handlers.chargeBattery({
         batteryId: 1,
         trackedTime: '2024-01-15 09:00:00',
-        note: 'Full charge cycle',
+        note: 'ignored',
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/batteries/1/charge', {
         method: 'POST',
         body: {
           tracked_time: '2024-01-15 09:00:00',
-          note: 'Full charge cycle',
         },
         queryParams: {},
       });
@@ -292,11 +293,10 @@ describe('HouseholdToolHandlers', () => {
         batteryId: 1,
       });
 
+      // No client-side timestamp: Grocy uses its own server-local current time.
       expect(mockApiClient.request).toHaveBeenCalledWith('/batteries/1/charge', {
         method: 'POST',
-        body: {
-          tracked_time: '2024-01-15 10:30:00',
-        },
+        body: {},
         queryParams: {},
       });
       expect(result.isError).toBeUndefined();

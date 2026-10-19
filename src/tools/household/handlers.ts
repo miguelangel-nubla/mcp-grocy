@@ -13,14 +13,14 @@ export class HouseholdToolHandlers extends BaseToolHandler {
 
   public trackChoreExecution: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { choreId, executedBy, trackedTime, note } = args || {};
+      const { choreId, executedBy, trackedTime, skipped } = args || {};
       this.validateRequired({ choreId }, ['choreId']);
 
-      const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      // Omit tracked_time when not given so Grocy uses its own server-local current time.
       const body = {
-        tracked_time: trackedTime || timestamp,
+        ...(trackedTime ? { tracked_time: trackedTime } : {}),
         ...(executedBy ? { done_by: executedBy } : {}),
-        ...(note ? { note } : {}),
+        ...(skipped ? { skipped: true } : {}),
       };
 
       const result = await this.apiCall(`/chores/${choreId}/execute`, 'POST', body);
@@ -39,10 +39,14 @@ export class HouseholdToolHandlers extends BaseToolHandler {
 
   public completeTask: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { taskId, note } = args || {};
+      const { taskId, doneTime } = args || {};
       this.validateRequired({ taskId }, ['taskId']);
 
-      const result = await this.apiCall(`/tasks/${taskId}/complete`, 'POST', note ? { note } : {});
+      const result = await this.apiCall(
+        `/tasks/${taskId}/complete`,
+        'POST',
+        doneTime ? { done_time: doneTime } : {},
+      );
       return this.createSuccess(result, 'Task completed successfully');
     });
   };
@@ -58,13 +62,12 @@ export class HouseholdToolHandlers extends BaseToolHandler {
 
   public chargeBattery: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { batteryId, trackedTime, note } = args || {};
+      const { batteryId, trackedTime } = args || {};
       this.validateRequired({ batteryId }, ['batteryId']);
 
-      const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      // Omit tracked_time when not given so Grocy uses its own server-local current time.
       const body = {
-        tracked_time: trackedTime || timestamp,
-        ...(note ? { note } : {}),
+        ...(trackedTime ? { tracked_time: trackedTime } : {}),
       };
 
       const result = await this.apiCall(`/batteries/${batteryId}/charge`, 'POST', body);
