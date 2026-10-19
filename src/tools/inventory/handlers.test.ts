@@ -442,6 +442,34 @@ describe('InventoryToolHandlers', () => {
       expect(result.isError).toBeFalsy();
     });
 
+    it('should rank word-start matches above substring matches', async () => {
+      const mockProducts = [
+        { id: 640, name: 'Emperador', qu_id_stock: 1 },
+        { id: 509, name: '*Ensalada campera', qu_id_stock: 1 },
+        { id: 61, name: '- Peras', qu_id_stock: 1 },
+      ];
+      mockApiClient.request.mockImplementation(async (endpoint: string) => {
+        if (endpoint === '/objects/products')
+          return { data: mockProducts, status: 200, headers: {} };
+        if (endpoint === '/objects/locations')
+          return { data: [{ id: 2, name: 'Nevera' }], status: 200, headers: {} };
+        if (endpoint === '/objects/quantity_units') return { data: [], status: 200, headers: {} };
+        if (endpoint === '/stock/products/61/entries')
+          return {
+            data: [{ id: 3368, amount: 0.3, best_before_date: '2026-10-21', location_id: '2' }],
+            status: 200,
+            headers: {},
+          };
+        return { data: [], status: 200, headers: {} };
+      });
+
+      const result = await handlers.lookupProduct({ productName: 'pera' });
+      const data = (result.structuredContent as any).data;
+
+      expect(data.productMatches[0].productId).toBe(61);
+      expect(data.allAvailableLocations).toEqual([{ id: 2, name: 'Nevera' }]);
+    });
+
     it('should return error when no products found', async () => {
       mockApiClient.request
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} })

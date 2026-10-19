@@ -261,7 +261,28 @@ export class InventoryToolHandlers extends BaseToolHandler {
         }));
       }
 
-      productMatches = productMatches.slice(0, 5);
+      // Fuse ignores location, so "pera" scores as well inside "Emperador" as in "Peras".
+      // Rank exact names, then word-start matches, then substrings ahead of fuzzy-only hits.
+      const normalize = (text: string) =>
+        String(text ?? '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+      const query = normalize(productName);
+      const matchTier = (name: string) => {
+        const normalizedName = normalize(name);
+        if (normalizedName === query) return 0;
+        if (` ${normalizedName}`.includes(` ${query}`)) return 1;
+        if (normalizedName.includes(query)) return 2;
+        return 3;
+      };
+      productMatches = productMatches
+        .map((match: any) => ({ match, tier: matchTier(match.name) }))
+        .sort((a: any, b: any) => a.tier - b.tier || a.match.fuseScore - b.match.fuseScore)
+        .map(({ match }: any) => match)
+        .slice(0, 5);
 
       if (productMatches.length === 0) {
         return this.createError(`No products found matching "${productName}"`, {
@@ -326,7 +347,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
         productMatches: enrichedMatches,
         allAvailableLocations: locations.map((l: any) => ({ id: l.id, name: l.name })),
         instructions:
-          'Review the matches above. Use the exact productId and locationId from this data for any product operations (inventory_stock_entry_consume, inventory_stock_entry_transfer, inventory_transactions_purchase, inventory_transactions_adjust, etc.).',
+          'Review the matches above. Use the exact productId and locationId from this data for any product operations (inventory_transactions_consume, inventory_stock_entry_consume, inventory_stock_entry_transfer, inventory_transactions_purchase, inventory_transactions_adjust, etc.).',
       });
     });
   };
