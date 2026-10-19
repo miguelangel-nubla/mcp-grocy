@@ -624,21 +624,24 @@ describe('ShoppingToolHandlers', () => {
   });
 
   describe('updateShoppingList', () => {
-    it('should update shopping list', async () => {
-      const mockExistingList = { id: 1, name: 'Default', description: 'Old description' };
-      const mockResponse = { id: 1, name: 'Default', description: 'New description' };
+    it('should PUT only the changed columns and read the list back', async () => {
+      const mockExistingList = {
+        id: 1,
+        name: 'Default',
+        description: 'Old description',
+        userfields: null,
+      };
+      const mockUpdatedList = {
+        id: 1,
+        name: 'Default',
+        description: 'New description',
+        userfields: null,
+      };
 
       mockApiClient.request
-        .mockResolvedValueOnce({
-          data: mockExistingList,
-          status: 200,
-          headers: {},
-        })
-        .mockResolvedValueOnce({
-          data: mockResponse,
-          status: 200,
-          headers: {},
-        });
+        .mockResolvedValueOnce({ data: mockExistingList, status: 200, headers: {} })
+        .mockResolvedValueOnce({ data: undefined, status: 204, headers: {} })
+        .mockResolvedValueOnce({ data: mockUpdatedList, status: 200, headers: {} });
 
       const result = await handlers.updateShoppingList({
         shoppingListId: 1,
@@ -650,18 +653,72 @@ describe('ShoppingToolHandlers', () => {
         body: undefined,
         queryParams: {},
       });
-
       expect(mockApiClient.request).toHaveBeenNthCalledWith(2, '/objects/shopping_lists/1', {
         method: 'PUT',
-        body: {
-          id: 1,
-          name: 'Default',
-          description: 'New description',
-        },
+        body: { description: 'New description' },
+        queryParams: {},
+      });
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(3, '/objects/shopping_lists/1', {
+        method: 'GET',
+        body: undefined,
+        queryParams: {},
+      });
+      expect(mockApiClient.request).toHaveBeenCalledTimes(3);
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain('Shopping list updated successfully');
+      expect(JSON.stringify(result.structuredContent)).toContain('New description');
+    });
+
+    it('should send name and description when both are given', async () => {
+      mockApiClient.request
+        .mockResolvedValueOnce({
+          data: { id: 2, name: 'Old', description: 'x', userfields: null },
+          status: 200,
+          headers: {},
+        })
+        .mockResolvedValueOnce({ data: undefined, status: 204, headers: {} })
+        .mockResolvedValueOnce({
+          data: { id: 2, name: 'New', description: 'y', userfields: null },
+          status: 200,
+          headers: {},
+        });
+
+      const result = await handlers.updateShoppingList({
+        shoppingListId: 2,
+        name: 'New',
+        notes: 'y',
+      });
+
+      expect(mockApiClient.request).toHaveBeenNthCalledWith(2, '/objects/shopping_lists/2', {
+        method: 'PUT',
+        body: { name: 'New', description: 'y' },
         queryParams: {},
       });
       expect(result.isError).toBeUndefined();
-      expect(result.content[0].text).toContain('Shopping list updated successfully');
+      expect(JSON.stringify(result.structuredContent)).toContain('"New"');
+    });
+
+    it('should skip the PUT when nothing changes', async () => {
+      mockApiClient.request.mockResolvedValueOnce({
+        data: { id: 1, name: 'Default', description: 'd', userfields: null },
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.updateShoppingList({ shoppingListId: 1 });
+
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
+      expect(result.isError).toBeUndefined();
+    });
+
+    it('should report a missing list without a PUT', async () => {
+      mockApiClient.request.mockResolvedValueOnce({ data: null, status: 200, headers: {} });
+
+      const result = await handlers.updateShoppingList({ shoppingListId: 99, name: 'x' });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Shopping list 99 not found');
+      expect(mockApiClient.request).toHaveBeenCalledTimes(1);
     });
 
     it('should require shoppingListId parameter', async () => {

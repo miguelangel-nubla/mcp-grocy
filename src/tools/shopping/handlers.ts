@@ -170,16 +170,18 @@ export class ShoppingToolHandlers extends BaseToolHandler {
         throw new Error(`Shopping list ${shoppingListId} not found`);
       }
 
-      const body = {
-        ...existingList,
-      };
-
+      // Grocy's PUT is a partial update; send only the changed columns (the GET adds a
+      // `userfields` key that is not a column and would fail the update)
+      const body: Record<string, unknown> = {};
       if (name !== undefined) body.name = name;
-      if (notes !== undefined) {
-        body.description = notes;
-      }
+      if (notes !== undefined) body.description = notes;
 
-      const result = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`, 'PUT', body);
+      let result = existingList;
+      if (Object.keys(body).length > 0) {
+        await this.apiCall(`/objects/shopping_lists/${shoppingListId}`, 'PUT', body);
+        // The PUT answers 204 with no body; read the list back to return it
+        result = await this.apiCall(`/objects/shopping_lists/${shoppingListId}`);
+      }
       return this.createSuccess(
         this.normalizeShoppingListsResponse(result),
         'Shopping list updated successfully',
