@@ -17,7 +17,7 @@ For **`system_dev_call_api`** / **`system_dev_test_request`**, pass endpoint **p
 
 ## Inventory and shopping
 
-### All stock entries
+### Stock overview (one row per product)
 
 ```typescript
 use_mcp_tool('mcp-grocy', 'inventory_stock_get_all', {});
@@ -27,7 +27,7 @@ use_mcp_tool('mcp-grocy', 'inventory_stock_get_all', {});
 
 ```typescript
 use_mcp_tool('mcp-grocy', 'inventory_stock_get_volatile', {
-  includeDetails: true,
+  dueSoonDays: 14,
 });
 ```
 
@@ -90,7 +90,6 @@ use_mcp_tool('mcp-grocy', 'recipes_management_get', {
 ```typescript
 use_mcp_tool('mcp-grocy', 'recipes_fulfillment_get', {
   recipeId: 1,
-  onlyMissing: false,
 });
 ```
 
@@ -177,7 +176,7 @@ use_mcp_tool('mcp-grocy', 'household_chores_execute', {
 ```typescript
 use_mcp_tool('mcp-grocy', 'household_tasks_complete', {
   taskId: 1,
-  note: 'Task completed successfully',
+  doneTime: '2024-06-30 18:00:00',
 });
 ```
 
