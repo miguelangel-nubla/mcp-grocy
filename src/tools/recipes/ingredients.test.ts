@@ -173,6 +173,28 @@ describe('RecipeIngredientHandlers', () => {
     expect(writes('PUT')).toHaveLength(0);
   });
 
+  it("keeps the ingredient's current unit when the product changes without a unit", async () => {
+    PRODUCTS[10] = { id: 10, name: 'Lomo de cerdo', qu_id_stock: KILO };
+    CONVERSIONS[10] = CONVERSIONS[8]!;
+    ROWS = { 1044: { id: 1044, recipe_id: 139, product_id: 9, amount: 0.03, qu_id: GRAMO } };
+    await handlers.updateIngredient({ ingredientId: 1044, productId: 10, amount: 200 });
+    const [[, opts]] = writes('PUT') as any;
+    expect(opts.body).toEqual({ product_id: 10, amount: 0.2, qu_id: GRAMO });
+    delete PRODUCTS[10];
+    delete CONVERSIONS[10];
+  });
+
+  it('refuses a product change when the new product has no conversion from the current unit', async () => {
+    ROWS = { 1044: { id: 1044, recipe_id: 139, product_id: 8, amount: 0.2, qu_id: GRAMO } };
+    const result = await handlers.updateIngredient({
+      ingredientId: 1044,
+      productId: 9,
+      amount: 200,
+    });
+    expect(result.isError).toBe(true);
+    expect(writes('PUT')).toHaveLength(0);
+  });
+
   it('updates a note without touching the amount', async () => {
     ROWS = { 1044: { id: 1044, recipe_id: 139, product_id: 8, amount: 0.5, qu_id: GRAMO } };
     await handlers.updateIngredient({ ingredientId: 1044, note: 'en tacos' });

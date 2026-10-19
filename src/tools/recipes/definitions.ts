@@ -207,11 +207,6 @@ export const recipeToolDefinitions: ToolDefinition[] = [
           description:
             'ID of the recipe to check fulfillment for. Use recipes_management_get tool to find the correct recipe ID by name.',
         },
-        onlyMissing: {
-          type: 'boolean',
-          description: 'If true, only return missing/insufficient ingredients',
-          default: false,
-        },
       },
       required: ['recipeId'],
     },
@@ -348,7 +343,8 @@ export const recipeToolDefinitions: ToolDefinition[] = [
         },
         servings: {
           type: 'number',
-          description: 'Number of servings to cook (scales ingredient consumption accordingly)',
+          description:
+            "Number of servings to cook (scales ingredient consumption accordingly). Set as the recipe's desired servings for the consume and restored afterwards.",
           default: 1,
         },
       },
@@ -360,7 +356,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_shopping_add_all_products',
     description:
-      '[RECIPES/SHOPPING] Add **every** recipe ingredient to the shopping list (ignores what you already have). For only what you are short on use recipes_shopping_add_missing_products.',
+      '[RECIPES/SHOPPING] Add **every** recipe ingredient to the shopping list (ignores what you already have), including nested recipes, at the recipe\'s current servings in each product\'s stock unit; amounts are added to an existing row for the same product. Ingredients set to "only check if any amount is in stock" are skipped and reported. For only what you are short on use recipes_shopping_add_missing_products.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -368,6 +364,10 @@ export const recipeToolDefinitions: ToolDefinition[] = [
           type: 'number',
           description:
             'ID of the recipe whose products should be added to shopping list. Use recipes_management_get tool to find the correct recipe ID by name.',
+        },
+        shoppingListId: {
+          type: 'number',
+          description: "ID of the shopping list to add to. Omit to use Grocy's default list (1).",
         },
       },
       required: ['recipeId'],

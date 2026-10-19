@@ -125,6 +125,33 @@ export class RecipeToolHandlers extends BaseToolHandler {
   };
 
   /**
+   * Consume a recipe at a given number of servings. Grocy's consume endpoint takes no body and
+   * scales by the recipe's stored desired_servings, so set it first and restore it afterwards.
+   */
+  private async consumeAtServings(recipeId: number, servings: number): Promise<any> {
+    const recipe = await this.apiCall(`/objects/recipes/${recipeId}`);
+    const previousServings = recipe?.desired_servings;
+    const changed = previousServings == null || Number(previousServings) !== servings;
+
+    if (changed) {
+      await this.apiCall(`/objects/recipes/${recipeId}`, 'PUT', { desired_servings: servings });
+    }
+    try {
+      return await this.apiCall(`/recipes/${recipeId}/consume`, 'POST');
+    } finally {
+      if (changed && previousServings != null) {
+        try {
+          await this.apiCall(`/objects/recipes/${recipeId}`, 'PUT', {
+            desired_servings: previousServings,
+          });
+        } catch (restoreError) {
+          console.error(`Failed to restore desired_servings on recipe ${recipeId}:`, restoreError);
+        }
+      }
+    }
+  }
+
+  /**
    * Get recipe fulfillment information
    */
   public getRecipeFulfillment: ToolHandler = async (args: any): Promise<ToolResult> => {
@@ -289,34 +316,34 @@ export class RecipeToolHandlers extends BaseToolHandler {
 
       // Date parameter is mandatory
       this.validateRequired({ date }, ['date']);
+      this.validateDay(date, 'getMealPlan');
 
-      const targetDate = new Date(date);
-      if (isNaN(targetDate.getTime())) {
-        throw new ValidationError('Invalid date format. Use YYYY-MM-DD.', 'getMealPlan');
-      }
+      // Parse as UTC midnight and use UTC accessors only: getMealPlanForDays formats with
+      // toISOString(), so local-time arithmetic shifts the week on hosts west of UTC.
+      const targetDate = new Date(`${date}T00:00:00Z`);
 
       const datesToQuery: Date[] = [];
 
       if (weekly) {
         // For weekly view, get the start of the week (Monday)
-        const dayOfWeek = targetDate.getDay();
+        const dayOfWeek = targetDate.getUTCDay();
         const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
         const startDate = new Date(targetDate);
-        startDate.setDate(targetDate.getDate() + mondayOffset);
+        startDate.setUTCDate(targetDate.getUTCDate() + mondayOffset);
 
         // Get all 7 days of the week with ±1 day buffer for timezone issues
         for (let i = -1; i <= 7; i++) {
           const day = new Date(startDate);
-          day.setDate(startDate.getDate() + i);
+          day.setUTCDate(startDate.getUTCDate() + i);
           datesToQuery.push(day);
         }
       } else {
         // Get the specific date with ±1 day buffer for timezone issues
         const dayBefore = new Date(targetDate);
-        dayBefore.setDate(targetDate.getDate() - 1);
+        dayBefore.setUTCDate(targetDate.getUTCDate() - 1);
 
         const dayAfter = new Date(targetDate);
-        dayAfter.setDate(targetDate.getDate() + 1);
+        dayAfter.setUTCDate(targetDate.getUTCDate() + 1);
 
         datesToQuery.push(dayBefore, targetDate, dayAfter);
       }
@@ -469,14 +496,12 @@ export class RecipeToolHandlers extends BaseToolHandler {
 
       this.validateRequired({ recipeId }, ['recipeId']);
       const id = this.parseNumberParam(recipeId, 'recipeId');
-      const servingCount = this.parseNumberParam(servings, 'servings', false) || 1;
+      const servingCount = this.parseNumberParam(servings, 'servings', false) ?? 1;
+      if (servingCount <= 0) {
+        throw new ValidationError('servings must be a positive number', 'recipes_cooking_consume');
+      }
 
-      const consumeData = {
-        recipe_id: id,
-        servings: servingCount,
-      };
-
-      const result = await this.apiCall('/recipes/consume', 'POST', consumeData);
+      const result = await this.consumeAtServings(id!, servingCount);
 
       return this.createSuccess(result, `Recipe consumed (${servingCount} servings)`);
     });
@@ -489,17 +514,85 @@ export class RecipeToolHandlers extends BaseToolHandler {
    */
   public addAllProductsToShopping: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { recipeId } = args || {};
+      const { recipeId, shoppingListId } = args || {};
 
       this.validateRequired({ recipeId }, ['recipeId']);
       const id = this.parseNumberParam(recipeId, 'recipeId');
+      const listId = this.parseNumberParam(shoppingListId, 'shoppingListId', false);
 
-      const result = await this.apiCall(
-        `/recipes/${id}/add-all-ingredients-to-shopping-list`,
-        'POST',
+      const targetListId = listId ?? 1;
+
+      let recipe: any;
+      try {
+        recipe = await this.apiCall(`/objects/recipes/${id}`);
+      } catch {
+        recipe = undefined;
+      }
+      if (!recipe?.id) {
+        throw new ValidationError(
+          `Recipe ${id} does not exist`,
+          'recipes_shopping_add_all_products',
+        );
+      }
+
+      // Grocy has no "add all ingredients" endpoint. Mirror its add-not-fulfilled logic with the
+      // full amount: recipes_pos_resolved includes nested recipes and recipe_amount is scaled to
+      // the recipe's desired servings in the stock unit. /stock/shoppinglist/add-product is not
+      // used because it truncates the amount to an integer.
+      const positions = await this.apiCall('/objects/recipes_pos_resolved', 'GET', undefined, {
+        queryParams: { 'query[]': `recipe_id=${id}` },
+      });
+
+      const amounts = new Map<number, number>();
+      const skipped: Array<{ product_id: number; reason: string }> = [];
+      for (const pos of Array.isArray(positions) ? positions : []) {
+        if (pos?.product_id == null) continue;
+        const productId = Number(pos.product_id);
+        // With "only check if any amount is in stock" the amount is in the row's own unit, not
+        // the stock unit; skip rather than write a wrong amount.
+        if (pos.only_check_single_unit_in_stock == 1) {
+          skipped.push({ product_id: productId, reason: 'amount is not in the stock unit' });
+          continue;
+        }
+        const amount = Number(pos.recipe_amount);
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+        amounts.set(productId, (amounts.get(productId) ?? 0) + amount);
+      }
+
+      const existingRows = amounts.size
+        ? await this.apiCall('/objects/shopping_list', 'GET', undefined, {
+            queryParams: { 'query[]': `shopping_list_id=${targetListId}` },
+          })
+        : [];
+      const existingByProduct = new Map<number, any>();
+      for (const row of Array.isArray(existingRows) ? existingRows : []) {
+        if (row?.product_id != null) existingByProduct.set(Number(row.product_id), row);
+      }
+
+      const added: Array<{ product_id: number; amount: number }> = [];
+      for (const [productId, amount] of amounts) {
+        const existing = existingByProduct.get(productId);
+        if (existing) {
+          await this.apiCall(`/objects/shopping_list/${existing.id}`, 'PUT', {
+            amount: Number(existing.amount) + amount,
+          });
+        } else {
+          const product = await this.apiCall(`/objects/products/${productId}`);
+          await this.apiCall('/objects/shopping_list', 'POST', {
+            product_id: productId,
+            amount,
+            qu_id: product?.qu_id_purchase ?? product?.qu_id_stock,
+            shopping_list_id: targetListId,
+          });
+        }
+        added.push({ product_id: productId, amount });
+      }
+
+      return this.createSuccess(
+        { recipe_id: id, shopping_list_id: targetListId, added, skipped },
+        `${added.length} recipe products added to shopping list` +
+          (skipped.length ? ` (${skipped.length} skipped)` : ''),
       );
-
-      return this.createSuccess(result, 'All recipe products added to shopping list');
     });
   };
 
@@ -514,7 +607,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const id = this.parseNumberParam(recipeId, 'recipeId');
 
       const result = await this.apiCall(
-        `/recipes/${id}/add-not-fulfilled-products-to-shopping-list`,
+        `/recipes/${id}/add-not-fulfilled-products-to-shoppinglist`,
         'POST',
       );
 
@@ -588,6 +681,7 @@ export class RecipeToolHandlers extends BaseToolHandler {
       let totalServings: number;
       let mealPlanDate: string;
       let mealplanShadow: string;
+      let originalServings: unknown;
 
       if (allowNoMealPlan) {
         // Direct recipe mode - no meal plan entry involved
@@ -633,37 +727,54 @@ export class RecipeToolHandlers extends BaseToolHandler {
         mealPlanDate = mealPlanEntry.day || new Date().toISOString().split('T')[0]!;
         mealplanShadow = `${mealPlanDate}#${mealPlanEntryId}`;
 
-        // Mark the meal plan entry as done and update recipe_servings
+        // Update servings first so Grocy rescales the shadow recipe; done is set only after the
+        // consume succeeds, so a failed consume does not leave the entry stuck as done.
+        originalServings = mealPlanEntry.recipe_servings;
         await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'PUT', {
-          done: 1,
           recipe_servings: totalServings,
         });
-        completedSteps.push('Meal plan entry marked as done');
       }
 
       // Consume recipe ingredients
       if (allowNoMealPlan) {
-        // Direct consumption using the recipe ID
-        await this.apiCall(`/recipes/${actualRecipeId}/consume`, 'POST');
+        // Direct consumption using the recipe ID, scaled to the requested total servings
+        await this.consumeAtServings(actualRecipeId, totalServings);
         completedSteps.push('Recipe consumed directly');
       } else {
-        // Query for the mealplan shadow recipe by name
-        const shadowRecipes = await this.apiCall('/objects/recipes', 'GET', undefined, {
-          queryParams: { 'query[]': `name=${mealplanShadow}` },
-        });
+        try {
+          // Query for the mealplan shadow recipe by name
+          const shadowRecipes = await this.apiCall('/objects/recipes', 'GET', undefined, {
+            queryParams: { 'query[]': `name=${mealplanShadow}` },
+          });
 
-        if (!Array.isArray(shadowRecipes) || shadowRecipes.length === 0) {
-          throw new ValidationError(
-            `Mealplan shadow recipe '${mealplanShadow}' not found. Cannot consume ingredients.`,
-            'recipes_cooking_complete',
-          );
+          if (!Array.isArray(shadowRecipes) || shadowRecipes.length === 0) {
+            throw new ValidationError(
+              `Mealplan shadow recipe '${mealplanShadow}' not found. Cannot consume ingredients.`,
+              'recipes_cooking_complete',
+            );
+          }
+
+          const shadowRecipeId = shadowRecipes[0]!.id;
+
+          // Consume ingredients using the shadow recipe ID
+          await this.apiCall(`/recipes/${shadowRecipeId}/consume`, 'POST');
+        } catch (error) {
+          try {
+            await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'PUT', {
+              recipe_servings: originalServings,
+            });
+          } catch (restoreError) {
+            console.error(
+              `Failed to restore recipe_servings on meal plan entry ${mealPlanEntryId}:`,
+              restoreError,
+            );
+          }
+          throw error;
         }
-
-        const shadowRecipeId = shadowRecipes[0]!.id;
-
-        // Consume ingredients using the shadow recipe ID
-        await this.apiCall(`/recipes/${shadowRecipeId}/consume`, 'POST');
         completedSteps.push('Recipe consumed via meal plan entry');
+
+        await this.apiCall(`/objects/meal_plan/${mealPlanEntryId}`, 'PUT', { done: 1 });
+        completedSteps.push('Meal plan entry marked as done');
       }
 
       // Handle stock entry splitting and label printing
@@ -675,13 +786,18 @@ export class RecipeToolHandlers extends BaseToolHandler {
       const recipe = await this.apiCall(`/objects/recipes/${actualRecipeId}`);
 
       if (recipe && recipe.product_id) {
-        // Get product details and most recent stock entry
-        const [product, entries] = await Promise.all([
-          this.apiCall(`/objects/products/${recipe.product_id}`),
-          this.apiCall(`/stock/products/${recipe.product_id}/entries`, 'GET', undefined, {
-            queryParams: { order: 'row_created_timestamp:desc', limit: '1' },
-          }),
-        ]);
+        const product = await this.apiCall(`/objects/products/${recipe.product_id}`);
+        // With "label per unit" Grocy books the produced amount as one stock entry per unit,
+        // so there is no single lot to split: take the newest whole-unit entries as they are
+        const labelPerUnit = product?.default_stock_label_type == 2;
+        const producedEntries = labelPerUnit ? Math.floor(totalServings) : 1;
+        // Newest entries by id (row_created_timestamp only has one-second resolution)
+        const entries =
+          producedEntries > 0
+            ? await this.apiCall(`/stock/products/${recipe.product_id}/entries`, 'GET', undefined, {
+                queryParams: { order: 'id:desc', limit: String(producedEntries) },
+              })
+            : [];
 
         // Get quantity unit info
         let quantityUnit = null;
@@ -700,25 +816,42 @@ export class RecipeToolHandlers extends BaseToolHandler {
           return quantityUnit.name_plural || quantityUnit.name;
         };
 
-        if (Array.isArray(entries) && entries.length > 0) {
+        if (labelPerUnit && Array.isArray(entries)) {
+          stockEntries.splitEntries = entries.map((entry: any) => ({
+            stockId: entry.id,
+            amount: Number(entry.amount),
+            type: 'per_unit',
+            unit: getUnitForm(Number(entry.amount)),
+          }));
+          completedSteps.push(
+            'Product is labelled per unit: Grocy created one stock entry per unit, stockAmounts split not applied',
+          );
+        } else if (Array.isArray(entries) && entries.length > 0) {
           const originalEntry = entries[0]!;
 
-          // Use the real stock splitting functionality
-          stockEntries.splitEntries = await this.inventoryHandlers.splitStockEntry(
-            originalEntry,
-            stockAmounts,
-            getUnitForm,
-          );
+          // Use the real stock splitting functionality. The consume already happened, so a lot
+          // that doesn't match stockAmounts (not the one this cook produced) skips the split
+          // instead of failing the whole tool.
+          try {
+            stockEntries.splitEntries = await this.inventoryHandlers.splitStockEntry(
+              originalEntry,
+              stockAmounts,
+              getUnitForm,
+            );
+          } catch (error) {
+            if (!(error instanceof ValidationError)) throw error;
+            completedSteps.push(`Stock entry split skipped: ${error.message}`);
+          }
+        }
 
-          // Print labels for all entries (if enabled)
-          if (printLabels) {
-            for (const entry of stockEntries.splitEntries) {
-              try {
-                await this.apiCall(`/stock/entry/${originalEntry.id}/printlabel`);
-                stockEntries.labelsPrinted++;
-              } catch (error) {
-                console.error(`Failed to print label for stock entry ${entry.stockId}:`, error);
-              }
+        // Print labels for all entries (if enabled)
+        if (printLabels) {
+          for (const entry of stockEntries.splitEntries) {
+            try {
+              await this.apiCall(`/stock/entry/${entry.stockId}/printlabel`);
+              stockEntries.labelsPrinted++;
+            } catch (error) {
+              console.error(`Failed to print label for stock entry ${entry.stockId}:`, error);
             }
           }
         }

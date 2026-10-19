@@ -251,14 +251,13 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
           throw new ValidationError('Pass amount (in unit) when changing the unit or product.');
         }
         const value = this.validateAmount(amount);
-        const qu =
-          unit !== undefined
-            ? this.resolveUnit(units, product, unit)
-            : this.resolveUnit(
-                units,
-                product,
-                productChanged ? undefined : Number(row.qu_id ?? product.qu_id_stock),
-              );
+        // Without unit the amount is in the ingredient's current unit, also when the product
+        // changes; toStock fails if the new product has no conversion from it.
+        const qu = this.resolveUnit(
+          units,
+          product,
+          unit !== undefined ? unit : Number(row.qu_id ?? product.qu_id_stock),
+        );
         const stockAmount = this.toStock(value, qu, product, conversions, units);
         Object.assign(body, { product_id: product.id, amount: stockAmount, qu_id: qu.id });
         message += `: ${this.describe(value, qu, stockAmount, product, units)}`;
