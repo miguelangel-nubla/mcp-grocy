@@ -129,7 +129,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
       if (spoiled) body.spoiled = true;
 
       const result = await this.apiCall(`/stock/products/${productId}/consume`, 'POST', body);
-      return this.createSuccess(result, 'Product consumed successfully');
+      return this.createSuccess(this.summarizeConsume(result), 'Product consumed successfully');
     });
   };
 
@@ -182,6 +182,26 @@ export class InventoryToolHandlers extends BaseToolHandler {
       return this.createSuccess(result, 'Product opened successfully');
     });
   };
+
+  /**
+   * Grocy answers a consume with the full stock_log rows it wrote (one per lot, ~20 columns each,
+   * including receipt notes and prices). Reduce them to what an agent needs to confirm or undo.
+   */
+  private summarizeConsume(result: any): any {
+    if (!Array.isArray(result)) return result;
+    const consumed = result.reduce((sum: number, row: any) => sum - parseFloat(row.amount || 0), 0);
+    return {
+      productId: result[0]?.product_id,
+      consumedAmount: Math.round(consumed * 10000) / 10000,
+      spoiled: result.some((row: any) => row.spoiled == 1),
+      transactionIds: [...new Set(result.map((row: any) => row.transaction_id))],
+      lots: result.map((row: any) => ({
+        amount: -parseFloat(row.amount),
+        bestBeforeDate: row.best_before_date,
+        locationId: row.location_id,
+      })),
+    };
+  }
 
   public lookupProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
@@ -475,7 +495,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
         'POST',
         body,
       );
-      return this.createSuccess(result, 'Stock entry consumed successfully');
+      return this.createSuccess(this.summarizeConsume(result), 'Stock entry consumed successfully');
     });
   };
 

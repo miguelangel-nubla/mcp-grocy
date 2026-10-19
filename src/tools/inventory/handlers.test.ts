@@ -214,6 +214,40 @@ describe('InventoryToolHandlers', () => {
       });
     });
 
+    it('should summarize the stock_log rows Grocy returns', async () => {
+      const row = (amount: number, bbd: string) => ({
+        id: 1,
+        product_id: 61,
+        amount,
+        best_before_date: bbd,
+        spoiled: 0,
+        transaction_id: 'tx1',
+        location_id: 2,
+        price: 2.49,
+        note: 'receipt:10|...',
+      });
+      mockApiClient.request.mockResolvedValue({
+        data: [row(-0.3, '2026-10-21'), row(-2.7, '2026-10-24')],
+        status: 200,
+        headers: {},
+      });
+
+      const result = await handlers.consumeProduct({ productId: 61, amount: 3 });
+
+      expect(result.structuredContent).toEqual({
+        data: {
+          productId: 61,
+          consumedAmount: 3,
+          spoiled: false,
+          transactionIds: ['tx1'],
+          lots: [
+            { amount: 0.3, bestBeforeDate: '2026-10-21', locationId: 2 },
+            { amount: 2.7, bestBeforeDate: '2026-10-24', locationId: 2 },
+          ],
+        },
+      });
+    });
+
     it('should handle spoiled products', async () => {
       const mockResponse = { data: { success: true }, status: 200, headers: {} };
       mockApiClient.request.mockResolvedValue(mockResponse);
