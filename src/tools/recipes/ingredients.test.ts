@@ -201,4 +201,135 @@ describe('RecipeIngredientHandlers', () => {
     const [[, opts]] = writes('PUT') as any;
     expect(opts.body).toEqual({ note: 'en tacos' });
   });
+
+  describe('only check if any amount is in stock', () => {
+    it('keeps the amount in its own unit and accepts any unit (as Grocy does)', async () => {
+      const grams = await handlers.addIngredient({
+        recipeId: 1,
+        productId: 8,
+        amount: 5,
+        unit: 'Gramo',
+        onlyCheckSingleUnitInStock: true,
+      });
+      const unit = await handlers.addIngredient({
+        recipeId: 1,
+        productId: 8,
+        amount: 1,
+        unit: 'Unidad',
+        onlyCheckSingleUnitInStock: true,
+      });
+      expect(grams.isError).toBeUndefined();
+      expect(unit.isError).toBeUndefined();
+      const bodies = writes('POST').map(([, opts]: any) => opts.body);
+      expect(
+        bodies.map((b: any) => [b.amount, b.qu_id, b.only_check_single_unit_in_stock]),
+      ).toEqual([
+        [5, GRAMO, 1],
+        [1, UNIDAD, 1],
+      ]);
+      expect(grams.content[0]!.text).toContain('kept in its own unit');
+    });
+
+    it('lists the stored amount as is, with its stock conversion when one exists', async () => {
+      ROWS = {
+        1: {
+          id: 1,
+          recipe_id: 139,
+          product_id: 8,
+          amount: 5,
+          qu_id: GRAMO,
+          only_check_single_unit_in_stock: 1,
+        },
+        2: {
+          id: 2,
+          recipe_id: 139,
+          product_id: 8,
+          amount: 2,
+          qu_id: UNIDAD,
+          only_check_single_unit_in_stock: 1,
+        },
+      };
+      const result = await handlers.getIngredients({ recipeId: 139 });
+      const [grams, unit] = (result.structuredContent as any).data;
+      expect(grams).toMatchObject({
+        amount: 5,
+        unit: 'Gramo',
+        stockAmount: 0.005,
+        onlyCheckSingleUnitInStock: true,
+      });
+      expect(unit).toMatchObject({ amount: 2, unit: 'Unidad', stockAmount: null });
+    });
+
+    it('updates the amount of an only-check ingredient without converting it', async () => {
+      ROWS = {
+        1044: {
+          id: 1044,
+          recipe_id: 139,
+          product_id: 8,
+          amount: 5,
+          qu_id: GRAMO,
+          only_check_single_unit_in_stock: 1,
+        },
+      };
+      await handlers.updateIngredient({ ingredientId: 1044, amount: 3, unit: 'Unidad' });
+      const [[, opts]] = writes('PUT') as any;
+      expect(opts.body).toEqual({ product_id: 8, amount: 3, qu_id: UNIDAD });
+    });
+
+    it('stores a new amount unconverted when the flag is switched on in the same call', async () => {
+      ROWS = { 1044: { id: 1044, recipe_id: 139, product_id: 8, amount: 0.5, qu_id: GRAMO } };
+      await handlers.updateIngredient({
+        ingredientId: 1044,
+        amount: 7,
+        onlyCheckSingleUnitInStock: true,
+      });
+      const [[, opts]] = writes('PUT') as any;
+      expect(opts.body).toEqual({
+        product_id: 8,
+        amount: 7,
+        qu_id: GRAMO,
+        only_check_single_unit_in_stock: 1,
+      });
+    });
+
+    it('keeps the amount Grocy shows when only the flag changes', async () => {
+      ROWS = { 1044: { id: 1044, recipe_id: 139, product_id: 8, amount: 0.5, qu_id: GRAMO } };
+      await handlers.updateIngredient({ ingredientId: 1044, onlyCheckSingleUnitInStock: true });
+      ROWS = {
+        1045: {
+          id: 1045,
+          recipe_id: 139,
+          product_id: 8,
+          amount: 5,
+          qu_id: GRAMO,
+          only_check_single_unit_in_stock: 1,
+        },
+      };
+      await handlers.updateIngredient({ ingredientId: 1045, onlyCheckSingleUnitInStock: false });
+      const bodies = writes('PUT').map(([, opts]: any) => opts.body);
+      expect(bodies).toEqual([
+        { amount: 500, only_check_single_unit_in_stock: 1 },
+        { amount: 0.005, only_check_single_unit_in_stock: 0 },
+      ]);
+    });
+
+    it('refuses switching the flag off when the unit has no conversion', async () => {
+      ROWS = {
+        1044: {
+          id: 1044,
+          recipe_id: 139,
+          product_id: 8,
+          amount: 2,
+          qu_id: UNIDAD,
+          only_check_single_unit_in_stock: 1,
+        },
+      };
+      const result = await handlers.updateIngredient({
+        ingredientId: 1044,
+        onlyCheckSingleUnitInStock: false,
+      });
+      expect(result.isError).toBe(true);
+      expect(writes('PUT')).toHaveLength(0);
+    });
+  });
 });

@@ -694,7 +694,6 @@ describe('RecipeToolHandlers', () => {
           ([, opts]: any) => opts.queryParams['query[]'],
         );
         expect(days).toEqual([
-          'day=2026-10-18',
           'day=2026-10-19',
           'day=2026-10-20',
           'day=2026-10-21',
@@ -702,7 +701,6 @@ describe('RecipeToolHandlers', () => {
           'day=2026-10-23',
           'day=2026-10-24',
           'day=2026-10-25',
-          'day=2026-10-26',
         ]);
       } finally {
         if (previousTz === undefined) delete process.env.TZ;
@@ -951,7 +949,6 @@ describe('RecipeToolHandlers', () => {
       // Mock empty responses for most days, one entry on target day
       mockApiClient.request
         .mockResolvedValue({ data: [], status: 200, headers: {} }) // default for most calls
-        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // buffer day before
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Monday
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Tuesday
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Wednesday
@@ -959,7 +956,6 @@ describe('RecipeToolHandlers', () => {
         .mockResolvedValueOnce({ data: [mockMealPlanEntry], status: 200, headers: {} }) // Friday (target)
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Saturday
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // Sunday
-        .mockResolvedValueOnce({ data: [], status: 200, headers: {} }) // buffer day after
         .mockResolvedValueOnce({
           data: { id: 73, name: 'Recipe', product_id: null },
           status: 200,
@@ -975,8 +971,13 @@ describe('RecipeToolHandlers', () => {
       expect(response.meal_plan_by_date['2024-01-19']).toBeDefined();
       expect(response.meal_plan_by_date['2024-01-19'][0].id).toBe(1);
 
-      // Should call for 9 days (week + 2 buffer days)
-      expect(mockApiClient.request).toHaveBeenCalledTimes(11); // 9 meal plan + 1 recipe + 1 all sections
+      // Should call for the 7 days Monday..Sunday, no buffer days
+      expect(mockApiClient.request).toHaveBeenCalledTimes(9); // 7 meal plan + 1 recipe + 1 all sections
+      const days = mockApiClient.request.mock.calls
+        .slice(0, 7)
+        .map(([, opts]: any) => opts.queryParams['query[]']);
+      expect(days[0]).toBe('day=2024-01-15');
+      expect(days[6]).toBe('day=2024-01-21');
     });
 
     it('should handle API errors gracefully', async () => {

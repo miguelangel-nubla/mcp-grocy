@@ -99,7 +99,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_ingredients_add',
     description:
-      '[RECIPES/INGREDIENTS] Add an ingredient to a recipe (amount for the recipe\'s base servings). Give the amount in the unit you name (e.g. 500 + "Gramo", 2 + "Cucharada"); it is converted to the product\'s stock unit with Grocy\'s conversions, as the Grocy form does. Fails if the product has no conversion from that unit. Never write objects/recipes_pos directly: Grocy would read the number in the stock unit (500 g on a kilo product = 500 kg).',
+      '[RECIPES/INGREDIENTS] Add an ingredient to a recipe (amount for the recipe\'s base servings). Give the amount in the unit you name (e.g. 500 + "Gramo", 2 + "Cucharada"); it is converted to the product\'s stock unit with Grocy\'s conversions, as the Grocy form does. Fails if the product has no conversion from that unit. With onlyCheckSingleUnitInStock the amount is kept in the unit you name and any unit is allowed (as in Grocy). Never write objects/recipes_pos directly: Grocy would read the number in the stock unit (500 g on a kilo product = 500 kg).',
     annotations: { readOnlyHint: false, destructiveHint: false },
     inputSchema: {
       type: 'object',
@@ -122,7 +122,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
         onlyCheckSingleUnitInStock: {
           type: 'boolean',
           description:
-            'Only check that any of it is in stock (salt, spices); the amount is not tracked.',
+            'Only check that any of it is in stock (salt, spices); the amount is not tracked. The amount is then kept in the unit you name, unconverted, and any unit is allowed (as in Grocy).',
         },
         notCheckStockFulfillment: {
           type: 'boolean',
@@ -136,7 +136,7 @@ export const recipeToolDefinitions: ToolDefinition[] = [
   {
     name: 'recipes_ingredients_update',
     description:
-      "[RECIPES/INGREDIENTS] Change an ingredient (ingredientId from recipes_ingredients_get). A new amount is given in unit (or the ingredient's current unit) and converted to the stock unit like recipes_ingredients_add.",
+      "[RECIPES/INGREDIENTS] Change an ingredient (ingredientId from recipes_ingredients_get). A new amount is given in unit (or the ingredient's current unit) and converted to the stock unit like recipes_ingredients_add (kept as is for only-check ingredients). Changing onlyCheckSingleUnitInStock without an amount keeps the amount Grocy shows.",
     annotations: { readOnlyHint: false, destructiveHint: false },
     inputSchema: {
       type: 'object',
@@ -239,7 +239,8 @@ export const recipeToolDefinitions: ToolDefinition[] = [
         },
         weekly: {
           type: 'boolean',
-          description: 'If true, returns the entire calendar week containing the specified date.',
+          description:
+            'If true, returns the calendar week (Monday to Sunday) containing the specified date, without the surrounding days.',
         },
       },
       required: ['date'],

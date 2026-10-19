@@ -7,6 +7,11 @@
  * in kilos is stored (and cooked, shopped and shown) as 500 kg. These tools take the amount
  * in the unit the caller names and convert it with Grocy's own conversion graph
  * (`quantity_unit_conversions_resolved`), failing instead of guessing when none exists.
+ *
+ * One exception, as in Grocy: with `only_check_single_unit_in_stock = 1` ("only check if any
+ * amount is in stock") the amount stays in the row's own unit, any unit is allowed and nothing
+ * is converted (the form's amount picker switches to AllowAnyQu with every factor 1, the recipe
+ * views skip the conversion for such rows, and add-not-fulfilled converts them itself).
  */
 
 import { BaseToolHandler } from '../base.js';
@@ -129,6 +134,31 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
     return conv ? clean(amount * conv.factor) : null;
   }
 
+  /** The amount Grocy stores for `value` in `unit`: as is for only-check rows, else in the stock unit. */
+  private stored(
+    value: number,
+    unit: QuantityUnit,
+    product: Product,
+    conversions: Conversion[],
+    units: QuantityUnit[],
+    onlyCheck: boolean,
+  ): number {
+    return onlyCheck ? clean(value) : this.toStock(value, unit, product, conversions, units);
+  }
+
+  /** The amount Grocy shows (in the row's unit) for a stored amount, or null without a conversion. */
+  private shown(
+    storedAmount: number,
+    quId: number,
+    product: Product,
+    conversions: Conversion[],
+    onlyCheck: boolean,
+  ): number | null {
+    return onlyCheck
+      ? clean(storedAmount)
+      : this.fromStock(storedAmount, quId, product, conversions);
+  }
+
   private validateAmount(amount: unknown): number {
     const value = Number(amount);
     if (amount === undefined || amount === null || !Number.isFinite(value) || value <= 0) {
@@ -143,7 +173,11 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
     stockAmount: number,
     product: Product,
     units: QuantityUnit[],
+    onlyCheck = false,
   ) {
+    if (onlyCheck) {
+      return `${amount} ${unit.name} of "${product.name}" (only checked for being in stock; kept in its own unit, as Grocy does)`;
+    }
     const stock = units.find((u) => u.id === product.qu_id_stock);
     return `${amount} ${unit.name} of "${product.name}" (stored as ${stockAmount} ${stock?.name ?? ''} in its stock unit)`;
   }
@@ -164,25 +198,38 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
       for (const row of rows) {
         const product = await this.product(Number(row.product_id));
         const conversions = await this.conversions(product.id);
-        const stockAmount = Number(row.amount);
+        const storedAmount = Number(row.amount);
         const quId =
           row.qu_id === null || row.qu_id === undefined ? product.qu_id_stock : Number(row.qu_id);
+        const onlyCheck = Number(row.only_check_single_unit_in_stock || 0) === 1;
+        // Only-check rows keep the amount in their own unit; stockAmount is then its conversion
+        // to the stock unit when one exists (as add-not-fulfilled does), else null.
+        let stockAmount: number | null = storedAmount;
+        if (onlyCheck) {
+          const qu = units.find((u) => u.id === quId);
+          try {
+            stockAmount = qu ? this.toStock(storedAmount, qu, product, conversions, units) : null;
+          } catch {
+            stockAmount = null;
+          }
+        }
         out.push({
           ingredientId: Number(row.id),
           productId: product.id,
           productName: product.name,
-          amount: this.fromStock(stockAmount, quId, product, conversions),
+          amount: this.shown(storedAmount, quId, product, conversions, onlyCheck),
           unit: unitName(quId),
           stockAmount,
           stockUnit: unitName(product.qu_id_stock),
           note: row.note || '',
-          onlyCheckSingleUnitInStock: Number(row.only_check_single_unit_in_stock || 0) === 1,
+          onlyCheckSingleUnitInStock: onlyCheck,
           notCheckStockFulfillment: Number(row.not_check_stock_fulfillment || 0) === 1,
         });
       }
       return this.createSuccess(
         out,
-        'amount/unit is what Grocy shows; stockAmount/stockUnit is what Grocy stores and uses for stock and shopping.',
+        'amount/unit is what Grocy shows; stockAmount/stockUnit is what Grocy stores and uses for stock and shopping. ' +
+          'Only-check ingredients (onlyCheckSingleUnitInStock) are stored as amount/unit; their stockAmount is the converted amount, or null without a conversion.',
       );
     });
   };
@@ -205,12 +252,13 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
       const units = await this.units();
       const conversions = await this.conversions(product.id);
       const qu = this.resolveUnit(units, product, unit);
-      const stockAmount = this.toStock(value, qu, product, conversions, units);
+      const onlyCheck = Boolean(onlyCheckSingleUnitInStock);
+      const storedAmount = this.stored(value, qu, product, conversions, units, onlyCheck);
 
       const result = await this.apiCall('/objects/recipes_pos', 'POST', {
         recipe_id: Number(recipeId),
         product_id: product.id,
-        amount: stockAmount,
+        amount: storedAmount,
         qu_id: qu.id,
         note: note || '',
         only_check_single_unit_in_stock: onlyCheckSingleUnitInStock ? 1 : 0,
@@ -218,7 +266,7 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
       });
       return this.createSuccess(
         result,
-        `Added ${this.describe(value, qu, stockAmount, product, units)}`,
+        `Added ${this.describe(value, qu, storedAmount, product, units, onlyCheck)}`,
       );
     });
   };
@@ -242,6 +290,11 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
       const units = await this.units();
       const conversions = await this.conversions(product.id);
 
+      const wasOnlyCheck = Number(row.only_check_single_unit_in_stock || 0) === 1;
+      const onlyCheck =
+        onlyCheckSingleUnitInStock !== undefined
+          ? Boolean(onlyCheckSingleUnitInStock)
+          : wasOnlyCheck;
       const body: Record<string, unknown> = {};
       let message = `Updated ingredient ${ingredientId}`;
       const productChanged =
@@ -252,15 +305,30 @@ export class RecipeIngredientHandlers extends BaseToolHandler {
         }
         const value = this.validateAmount(amount);
         // Without unit the amount is in the ingredient's current unit, also when the product
-        // changes; toStock fails if the new product has no conversion from it.
+        // changes; toStock fails if the new product has no conversion from it (not for
+        // only-check rows, which keep the amount in any unit).
         const qu = this.resolveUnit(
           units,
           product,
           unit !== undefined ? unit : Number(row.qu_id ?? product.qu_id_stock),
         );
-        const stockAmount = this.toStock(value, qu, product, conversions, units);
-        Object.assign(body, { product_id: product.id, amount: stockAmount, qu_id: qu.id });
-        message += `: ${this.describe(value, qu, stockAmount, product, units)}`;
+        const storedAmount = this.stored(value, qu, product, conversions, units, onlyCheck);
+        Object.assign(body, { product_id: product.id, amount: storedAmount, qu_id: qu.id });
+        message += `: ${this.describe(value, qu, storedAmount, product, units, onlyCheck)}`;
+      } else if (onlyCheck !== wasOnlyCheck) {
+        // Toggling only-check changes how Grocy reads the stored number: keep the amount Grocy
+        // shows (as its form does) and store it the new way.
+        const quId = Number(row.qu_id ?? product.qu_id_stock);
+        const qu = units.find((u) => u.id === quId);
+        const shown = this.shown(Number(row.amount), quId, product, conversions, wasOnlyCheck);
+        if (!qu || shown === null) {
+          throw new ValidationError(
+            'Cannot keep the current amount when changing onlyCheckSingleUnitInStock: pass amount and unit.',
+          );
+        }
+        const storedAmount = this.stored(shown, qu, product, conversions, units, onlyCheck);
+        if (storedAmount !== Number(row.amount)) body.amount = storedAmount;
+        message += `: ${this.describe(shown, qu, storedAmount, product, units, onlyCheck)}`;
       }
       if (note !== undefined) body.note = note;
       if (onlyCheckSingleUnitInStock !== undefined)

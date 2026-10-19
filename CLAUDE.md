@@ -178,6 +178,12 @@ changes (`src/tools/system/write-guard.ts`).
 
 ### Error Handling and Validation
 
+One exception: a recipe ingredient with `only_check_single_unit_in_stock = 1` ("only check if any
+amount is in stock") keeps its amount in the row's own `qu_id`, unconverted, and any unit is
+allowed (Grocy's form switches the amount picker to AllowAnyQu, `views/recipeform.blade.php` skips
+the conversion for such rows, `RecipesService` add-not-fulfilled converts them itself).
+`recipes_ingredients_*` store and show those amounts as is.
+
 - **Comprehensive error handling** via `src/utils/errors.ts`
 - **MCP tool input validation** via Zod (from definitions) at the **`McpServer`** boundary; handlers still enforce business rules
 - **Response size limiting** to prevent memory issues

@@ -331,8 +331,8 @@ export class RecipeToolHandlers extends BaseToolHandler {
         const startDate = new Date(targetDate);
         startDate.setUTCDate(targetDate.getUTCDate() + mondayOffset);
 
-        // Get all 7 days of the week with ±1 day buffer for timezone issues
-        for (let i = -1; i <= 7; i++) {
+        // Monday to Sunday only: meal_plan.day is a plain date, so there is no time zone to buffer
+        for (let i = 0; i <= 6; i++) {
           const day = new Date(startDate);
           day.setUTCDate(startDate.getUTCDate() + i);
           datesToQuery.push(day);
