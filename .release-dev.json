@@ -43,19 +43,13 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sed -i 's/version: \"[0-9]*\\.[0-9]*\\.[0-9]*\"/version: \"${nextRelease.version}\"/' config.yaml && RELEASE_VERSION=${nextRelease.version} node scripts/build.js && npx tsc"
+        "prepareCmd": "RELEASE_VERSION=${nextRelease.version} node scripts/build.js && npx tsc"
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": [
-          "package.json",
-          "CHANGELOG.md",
-          "config.yaml",
-          "src/version.ts",
-          "build/version.js"
-        ],
+        "assets": ["package.json", "CHANGELOG.md", "src/version.ts", "build/version.js"],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ]

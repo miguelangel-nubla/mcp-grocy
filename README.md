@@ -105,7 +105,7 @@ npm install && npm run dev
 ## Requirements (Node.js & tooling)
 
 - **Node.js:** **22 or newer** as declared in `package.json` `engines`. **GitHub Actions** and **`.nvmrc`** use **Node 22** for CI and local alignment.
-- **Docker:** the default image is **`node:22-alpine`** so the container matches that major version (Home Assistant addon builds still override the base image).
+- **Docker:** the default image is **`node:22-alpine`** so the container matches that major version.
 - **TypeScript:** **5.9** in this repo; **TypeScript 6** is waiting on **`typescript-eslint`** to declare compatible peer support.
 - **`npm audit`:** any remaining findings are often inside **nested tooling** (e.g. bundled `npm`), not application dependencies. Use `npm audit` / `npm audit fix` on a branch when refreshing the lockfile.
 - **Quality checks:** `npm run lint` (ESLint), `npm run format:check` (Prettier), `npm test` (Vitest).

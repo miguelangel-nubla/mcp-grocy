@@ -120,16 +120,6 @@ async function prepareDevRelease() {
         packageJson.version = newVersion;
         fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
         console.log(`Updated package.json version to ${newVersion}`);
-
-        // Also update the version in config.yaml if it exists
-        const configYamlPath = path.join(process.cwd(), 'config.yaml');
-        if (fs.existsSync(configYamlPath)) {
-          let configContent = fs.readFileSync(configYamlPath, 'utf8');
-          const versionRegex = /version: "([0-9]+\.[0-9]+\.[0-9]+)"/;
-          configContent = configContent.replace(versionRegex, `version: "${newVersion}"`);
-          fs.writeFileSync(configYamlPath, configContent);
-          console.log(`Updated version in config.yaml to ${newVersion}`);
-        }
       } else {
         console.log(`[Dry run] Would update version to ${newVersion}`);
       }

@@ -39,9 +39,9 @@ if (fs.existsSync(srcResourcesDir)) {
   console.log('Copied src/resources to build/resources directory');
 }
 
-// Copy important root MD files (README, CHANGELOG, DOCS) to build/resources as well
+// Copy important root MD files (README, CHANGELOG) to build/resources as well
 const rootDir = path.resolve(__dirname, '..');
-['README.md', 'CHANGELOG.md', 'DOCS.md'].forEach((file) => {
+['README.md', 'CHANGELOG.md'].forEach((file) => {
   const sourcePath = path.join(rootDir, file);
   if (fs.existsSync(sourcePath)) {
     fs.copySync(sourcePath, path.join(buildResourcesDir, file));

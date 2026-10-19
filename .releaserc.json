@@ -19,19 +19,13 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "echo \"Updating config.yaml version for Home Assistant addon compatibility\" && node scripts/update-ha-addon-version.js \"${nextRelease.version}\" && echo \"Running scripts/build.js to update generated version files...\" && node scripts/build.js && npx tsc && echo \"Staging changed files...\" && git add CHANGELOG.md config.yaml && git add -f src/version.ts build/version.js"
+        "prepareCmd": "echo \"Running scripts/build.js to update generated version files...\" && node scripts/build.js && npx tsc && echo \"Staging changed files...\" && git add CHANGELOG.md && git add -f src/version.ts build/version.js"
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": [
-          "package.json",
-          "CHANGELOG.md",
-          "config.yaml",
-          "src/version.ts",
-          "build/version.js"
-        ],
+        "assets": ["package.json", "CHANGELOG.md", "src/version.ts", "build/version.js"],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
