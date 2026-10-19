@@ -60,6 +60,26 @@ jobs:
       - name: Verify MCP Inspector
         run: npm run test:mcp-inspector
 
+  e2e:
+    name: E2E (${{ matrix.flavor == 'next' && 'grocy-next' || 'upstream Grocy' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [next, upstream]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node
+
+      # The built server against a throwaway Grocy container (tests-e2e/harness)
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+        env:
+          E2E_GROCY_FLAVOR: ${{ matrix.flavor }}
+
   test-build:
     name: Test Docker Image Build
     runs-on: ubuntu-latest

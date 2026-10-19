@@ -18,6 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm test` - Run all tests using Vitest
 - `npm run test:watch` - Run tests in watch mode
 - Tests are located in `tests/` directory with `.test.ts` files, plus co-located test files in `src/tools/`
+- `npm run test:e2e` / `npm run test:e2e:upstream` - End-to-end suite (`tests-e2e/`, `vitest.e2e.config.ts`): builds, starts a throwaway Grocy container (grocy-next by default, `E2E_GROCY_FLAVOR=upstream` for linuxserver/grocy; images pinned in `tests-e2e/harness/grocy-container.ts`), runs `build/main.js` over stdio and asserts Grocy's state after each tool call. Needs Docker; `E2E_KEEP=1` leaves the container running
 
 ### Lint and format
 
@@ -176,13 +177,13 @@ Tools that write amounts either take them in the stock unit (and say so) or conv
 `src/tools/recipes/ingredients.ts`). The raw passthrough refuses those writes and stock-unit
 changes (`src/tools/system/write-guard.ts`).
 
-### Error Handling and Validation
-
 One exception: a recipe ingredient with `only_check_single_unit_in_stock = 1` ("only check if any
 amount is in stock") keeps its amount in the row's own `qu_id`, unconverted, and any unit is
 allowed (Grocy's form switches the amount picker to AllowAnyQu, `views/recipeform.blade.php` skips
 the conversion for such rows, `RecipesService` add-not-fulfilled converts them itself).
 `recipes_ingredients_*` store and show those amounts as is.
+
+### Error Handling and Validation
 
 - **Comprehensive error handling** via `src/utils/errors.ts`
 - **MCP tool input validation** via Zod (from definitions) at the **`McpServer`** boundary; handlers still enforce business rules

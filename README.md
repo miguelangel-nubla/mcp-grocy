@@ -302,6 +302,7 @@ npm start
 | `npm run watch`          | Watch mode for development                                                                                                          |
 | `npm test`               | Run test suite                                                                                                                      |
 | `npm run test:watch`     | Run tests in watch mode                                                                                                             |
+| `npm run test:e2e`       | Build, then run the end-to-end suite against a throwaway grocy-next container (needs Docker; `:upstream` for upstream Grocy)        |
 | `npm run inspector`      | Launch MCP protocol inspector                                                                                                       |
 | `npm run dev:mcp-tef`    | Run [mcp-tef](https://github.com/StacklokLabs/mcp-tef) locally (needs **uv** + **Ollama**) for tool-description / similarity checks |
 | `npm run report:mcp-tef` | One command: build, temporary mcp-grocy HTTP + mcp-tef, write `reports/mcp-tef/<timestamp>/` (similarity JSON + `SUMMARY.md`)       |
