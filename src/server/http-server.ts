@@ -7,6 +7,7 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { VERSION, PACKAGE_NAME as SERVER_NAME } from '../version.js';
 import cors from 'cors';
 import http from 'http';
+import { BlockList, isIP } from 'net';
 import { logger } from '../utils/logger.js';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -80,6 +81,84 @@ function createMcpAccessGate(accessToken: string | undefined) {
   };
 }
 
+function normalizeOrigin(value: string): string | undefined {
+  try {
+    return new URL(value).origin.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Loopback, private (RFC 1918 / ULA), link-local and CGNAT (e.g. Tailscale) ranges. */
+const LOCAL_IP_RANGES = (() => {
+  const list = new BlockList();
+  list.addSubnet('127.0.0.0', 8, 'ipv4');
+  list.addSubnet('10.0.0.0', 8, 'ipv4');
+  list.addSubnet('172.16.0.0', 12, 'ipv4');
+  list.addSubnet('192.168.0.0', 16, 'ipv4');
+  list.addSubnet('169.254.0.0', 16, 'ipv4');
+  list.addSubnet('100.64.0.0', 10, 'ipv4');
+  list.addAddress('::1', 'ipv6');
+  list.addSubnet('fc00::', 7, 'ipv6');
+  list.addSubnet('fe80::', 10, 'ipv6');
+  return list;
+})();
+
+/**
+ * localhost, or a loopback / private-network IP literal (typed directly, which DNS rebinding
+ * cannot produce). Public IP literals are refused: anyone can serve a page from one.
+ */
+function isLocalOrIpHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (h === 'localhost' || h.endsWith('.localhost')) return true;
+  const family = isIP(h);
+  if (family === 0) return false;
+  return LOCAL_IP_RANGES.check(h, family === 6 ? 'ipv6' : 'ipv4');
+}
+
+/**
+ * Origin validation (MCP Streamable HTTP spec; blocks cross-site pages and DNS rebinding).
+ * Skipped when an access token is configured, since a browser page cannot supply it.
+ * Requests without an Origin header (non-browser clients) always pass. A browser Origin is
+ * accepted when it matches a configured (non-`*`) CORS origin, or when its hostname is
+ * localhost or a loopback/private-network IP literal; anything else gets 403.
+ */
+function createOriginGate(security: HttpServerSecurityOptions) {
+  const allowedOrigin =
+    security.corsOrigin !== '*' ? normalizeOrigin(security.corsOrigin) : undefined;
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const origin = req.headers.origin;
+    if (security.accessToken || typeof origin !== 'string') {
+      next();
+      return;
+    }
+    const normalized = normalizeOrigin(origin);
+    let hostname: string | undefined;
+    try {
+      hostname = new URL(origin).hostname;
+    } catch {
+      hostname = undefined;
+    }
+    const ok =
+      (allowedOrigin !== undefined && normalized === allowedOrigin) ||
+      (hostname !== undefined && hostname !== '' && isLocalOrIpHostname(hostname));
+    if (ok) {
+      next();
+      return;
+    }
+    logger.warn(`Rejected MCP request from disallowed Origin: ${origin}`, 'server');
+    res.status(403).json({
+      jsonrpc: '2.0',
+      error: {
+        code: -32000,
+        message:
+          'Forbidden: Origin not allowed. Set MCP_HTTP_ACCESS_TOKEN or HTTP_CORS_ORIGIN to allow this client',
+      },
+      id: null,
+    });
+  };
+}
+
 // HTTP Transport for MCP (Context7 style)
 export function startHttpServer(
   mcpServer: McpServer | (() => McpServer),
@@ -90,20 +169,20 @@ export function startHttpServer(
   return new Promise((resolve, reject) => {
     const app = express();
     const mcpAccessGate = createMcpAccessGate(security.accessToken);
+    const originGate = createOriginGate(security);
 
     if (security.accessToken) {
       logger.config(
         'HTTP MCP access token is enabled (Bearer, X-MCP-Access-Token, or access_token on GET)',
       );
+    } else {
+      logger.warn(
+        'HTTP MCP server has no access token: anyone who can reach the port can call Grocy tools. Browser requests are limited to localhost/private-IP Origins (or HTTP_CORS_ORIGIN). Set MCP_HTTP_ACCESS_TOKEN when exposing the port.',
+        'server',
+      );
     }
 
-    // Enable JSON body parsing with increased limit
-    app.use(
-      express.json({
-        limit: '10mb',
-      }),
-    );
-
+    // CORS before body parsing so error responses (e.g. invalid JSON) stay readable by browsers
     app.use(
       cors({
         origin: security.corsOrigin,
@@ -120,6 +199,13 @@ export function startHttpServer(
         ],
         exposedHeaders: ['Mcp-Session-Id', 'Content-Type'],
         optionsSuccessStatus: 200,
+      }),
+    );
+
+    // Enable JSON body parsing with increased limit
+    app.use(
+      express.json({
+        limit: '10mb',
       }),
     );
 
@@ -203,7 +289,9 @@ export function startHttpServer(
     };
 
     // Streamable HTTP endpoint (Context7 modern)
-    app.all('/mcp', mcpAccessGate, async (req, res) => {
+    app.all('/mcp', originGate, mcpAccessGate, async (req, res) => {
+      // Session created by this initialize request; freed if the SDK rejects the request.
+      let pendingInitSessionId: string | undefined;
       try {
         const clientSessionId =
           (req.headers['mcp-session-id'] as string | undefined) ||
@@ -214,9 +302,16 @@ export function startHttpServer(
         // Accept header check (can be done early)
         const accept = req.headers.accept || '';
 
-        // Home Assistant might not send perfect accept headers, so we log a warning instead of blocking
-        if (!accept.includes('application/json') && !accept.includes('text/event-stream')) {
-          logger.warn('Client should accept application/json or text/event-stream', 'server');
+        // The SDK transport requires a POST's Accept to list both application/json and
+        // text/event-stream and returns 406 otherwise; log it here for diagnosis.
+        if (
+          req.method === 'POST' &&
+          !(accept.includes('application/json') && accept.includes('text/event-stream'))
+        ) {
+          logger.warn(
+            'Client must accept both application/json and text/event-stream; SDK will return 406',
+            'server',
+          );
         }
 
         const isInitializeRequest = req.method === 'POST' && req.body?.method === 'initialize';
@@ -249,6 +344,7 @@ export function startHttpServer(
             closeStreamableSession(clientSessionId);
           }
           const newGeneratedSessionId = randomUUID();
+          pendingInitSessionId = newGeneratedSessionId;
 
           const newTransportInstance = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => newGeneratedSessionId,
@@ -310,8 +406,18 @@ export function startHttpServer(
         }
 
         await transport.handleRequest(req, res, req.body);
+
+        // The SDK rejects a bad initialize (e.g. 406 Accept, 400 invalid JSON-RPC) before
+        // assigning a session ID, so no client can ever reach or DELETE it. Free it now
+        // instead of leaving it for the idle reaper.
+        if (pendingInitSessionId && !transport.sessionId) {
+          closeStreamableSession(pendingInitSessionId);
+        }
       } catch (error) {
         logger.error('Failed to handle streamable HTTP request', 'server', { error });
+        if (pendingInitSessionId && !streamableTransports[pendingInitSessionId]?.sessionId) {
+          closeStreamableSession(pendingInitSessionId);
+        }
 
         // Send error response if headers not sent yet
         if (!res.headersSent) {
@@ -328,7 +434,7 @@ export function startHttpServer(
     });
 
     // SSE endpoint
-    app.get('/mcp/sse', mcpAccessGate, async (_req, res) => {
+    app.get('/mcp/sse', originGate, mcpAccessGate, async (_req, res) => {
       try {
         // Set SSE headers before creating transport
         res.setHeader('Content-Type', 'text/event-stream');
@@ -389,7 +495,7 @@ export function startHttpServer(
     });
 
     // Message endpoint for SSE
-    app.post('/mcp/messages', mcpAccessGate, async (req, res) => {
+    app.post('/mcp/messages', originGate, mcpAccessGate, async (req, res) => {
       const sessionId = req.query.sessionId as string;
 
       if (!sessionId) {
@@ -428,6 +534,31 @@ export function startHttpServer(
       res.status(404).json({
         jsonrpc: '2.0',
         error: { code: -32000, message: 'Not found' },
+        id: null,
+      });
+    });
+
+    // Body-parser and other middleware errors: return JSON-RPC errors instead of Express's
+    // default HTML page (which includes stack traces outside production)
+    app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+      if (res.headersSent) {
+        next(err);
+        return;
+      }
+      const e = err as { status?: number; statusCode?: number; type?: string };
+      const status = e.status ?? e.statusCode ?? 500;
+      const parseFailed = e.type === 'entity.parse.failed';
+      logger.warn(`HTTP request error: ${e.type ?? 'unknown'}`, 'server', { status });
+      res.status(status >= 400 && status < 600 ? status : 500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: parseFailed ? -32700 : -32000,
+          message: parseFailed
+            ? 'Parse error: invalid JSON'
+            : e.type === 'entity.too.large'
+              ? 'Payload too large'
+              : 'Invalid request',
+        },
         id: null,
       });
     });

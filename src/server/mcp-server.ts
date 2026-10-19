@@ -263,6 +263,18 @@ export class GrocyMcpServer {
       capabilities: GROCY_SERVER_CAPABILITIES,
     });
     GrocyMcpServer.activeServers.add(mcp);
+    // Per-session servers are closed by http-server; drop them from the shutdown
+    // set when they close so ended sessions can be garbage-collected. Wrapping
+    // close() also covers a server that never connected (no transport onclose).
+    const forget = () => {
+      GrocyMcpServer.activeServers.delete(mcp);
+    };
+    mcp.server.onclose = forget;
+    const originalClose = mcp.close.bind(mcp);
+    mcp.close = async () => {
+      forget();
+      await originalClose();
+    };
     this.registerToolsAndResources(mcp);
     this.setupErrorHandling(mcp);
     return mcp;

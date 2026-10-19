@@ -36,7 +36,12 @@ const EnvironmentSchema = z.object({
   SERIALIZE_STRUCTURED_TO_CONTENT: z.enum(['true', 'false']).optional(),
 
   // Logging Configuration
-  LOG_LEVEL: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).optional(),
+  /** Case-insensitive, matching the logger (src/utils/logger.ts). */
+  LOG_LEVEL: z
+    .string()
+    .transform((s) => s.toUpperCase())
+    .pipe(z.enum(['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE']))
+    .optional(),
   LOG_CATEGORIES: z.string().optional(),
 
   // Build Configuration
@@ -187,10 +192,29 @@ export class ConfigManager {
     // Load YAML configuration
     const yaml = this.loadYamlConfig(configPath);
 
-    // Apply environment variable overrides
+    // Apply environment variable overrides, then re-validate so env values get the same bounds as YAML
     this.applyEnvironmentOverrides(yaml, env);
 
-    return { env, yaml };
+    return {
+      env,
+      yaml: this.parseYamlConfig(yaml, 'Invalid configuration (after environment overrides)'),
+    };
+  }
+
+  private parseYamlConfig(data: unknown, label: string): YamlConfig {
+    try {
+      return YamlConfigSchema.parse(data);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logger.error(label, 'CONFIG');
+        for (const issue of error.issues) {
+          const path = issue.path?.length ? issue.path.join('.') : '(root)';
+          logger.error(`${path}: ${issue.message}`, 'CONFIG');
+        }
+        process.exit(1);
+      }
+      throw error;
+    }
   }
 
   private loadEnvironment(): Environment {
@@ -212,29 +236,17 @@ export class ConfigManager {
   private loadYamlConfig(configPath?: string): YamlConfig {
     const yamlPath = this.findConfigFile(configPath);
 
-    try {
-      let configData: any = {};
+    let configData: any = {};
 
-      if (existsSync(yamlPath)) {
-        const yamlContent = readFileSync(yamlPath, 'utf8');
-        configData = YAML.parse(yamlContent) || {};
-        logger.config(`Loaded YAML config from: ${yamlPath}`);
-      } else {
-        logger.config('No YAML config found, using defaults');
-      }
-
-      return YamlConfigSchema.parse(configData);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error('Invalid YAML configuration', 'CONFIG');
-        for (const issue of error.issues) {
-          const path = issue.path?.length ? issue.path.join('.') : '(root)';
-          logger.error(`${path}: ${issue.message}`, 'CONFIG');
-        }
-        process.exit(1);
-      }
-      throw error;
+    if (existsSync(yamlPath)) {
+      const yamlContent = readFileSync(yamlPath, 'utf8');
+      configData = YAML.parse(yamlContent) || {};
+      logger.config(`Loaded YAML config from: ${yamlPath}`);
+    } else {
+      logger.config('No YAML config found, using defaults');
     }
+
+    return this.parseYamlConfig(configData, 'Invalid YAML configuration');
   }
 
   private findConfigFile(configPath?: string): string {

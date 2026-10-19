@@ -10,6 +10,8 @@ server:
   # CORS origin for MCP HTTP/SSE (use a specific URL instead of * when exposing the port)
   http_cors_origin: "*"
   # Optional: require token on /mcp, /mcp/sse, /mcp/messages (see MCP_HTTP_ACCESS_TOKEN)
+  # Without a token, browser requests (those with an Origin header) are only accepted from
+  # localhost/private-network IP origins or the http_cors_origin above; non-browser clients are unaffected.
   # http_access_token: "your-secret-token"
   # Reap an idle MCP session after this many ms with no requests (default 300000 = 5 min).
   # Prevents per-reconnect memory growth when clients don't send DELETE /mcp.

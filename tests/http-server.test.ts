@@ -41,6 +41,46 @@ async function closeServer(s: HttpServer): Promise<void> {
   });
 }
 
+/** Raw POST via node:http so browser-only headers (Origin) are sent verbatim. */
+function rawPost(
+  port: number,
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<{ status: number; headers: http.IncomingHttpHeaders; text: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path, method: 'POST', headers }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () =>
+        resolve({
+          status: res.statusCode ?? 0,
+          headers: res.headers,
+          text: Buffer.concat(chunks).toString('utf8'),
+        }),
+      );
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+const INITIALIZE_BODY = JSON.stringify({
+  jsonrpc: '2.0',
+  id: 1,
+  method: 'initialize',
+  params: {
+    protocolVersion: '2024-11-05',
+    capabilities: {},
+    clientInfo: { name: 'vitest-http', version: '1.0.0' },
+  },
+});
+
+function activeServerCount(): number {
+  return (GrocyMcpServer as unknown as { activeServers: Set<unknown> }).activeServers.size;
+}
+
 describe('startHttpServer', () => {
   let grocy: GrocyMcpServer;
   let httpServer: HttpServer | undefined;
@@ -270,6 +310,188 @@ describe('startHttpServer', () => {
     expect(sseBuf).toMatch(/"id"\s*:\s*10/);
     expect(sseBuf).toContain('"protocolVersion"');
     expect(sseBuf).toContain('"result"');
+  });
+
+  describe('Origin gate (no access token)', () => {
+    const post = (port: number, headers: Record<string, string>) =>
+      rawPost(
+        port,
+        '/mcp',
+        { Accept: STREAMABLE_ACCEPT, 'Content-Type': 'application/json', ...headers },
+        INITIALIZE_BODY,
+      );
+
+    it('rejects a cross-site browser Origin with 403 JSON-RPC error', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const res = await post(serverPort(httpServer), { Origin: 'http://evil.example' });
+      expect(res.status).toBe(403);
+      const json = JSON.parse(res.text) as { jsonrpc: string; error: { code: number } };
+      expect(json.jsonrpc).toBe('2.0');
+      expect(json.error.code).toBe(-32000);
+    });
+
+    it('rejects a DNS-rebinding style Origin even when the Host matches', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const port = serverPort(httpServer);
+      const res = await post(port, {
+        Origin: `http://rebind.example:${port}`,
+        Host: `rebind.example:${port}`,
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects an opaque "null" Origin', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const res = await post(serverPort(httpServer), { Origin: 'null' });
+      expect(res.status).toBe(403);
+    });
+
+    it('allows requests without an Origin header (non-browser clients)', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const res = await post(serverPort(httpServer), {});
+      expect(res.status).toBe(200);
+      expect(res.headers['mcp-session-id']).toBeTruthy();
+    });
+
+    it.each([
+      'http://localhost:3000',
+      'http://127.0.0.1:8080',
+      'http://192.168.1.20',
+      'http://[::1]:5173',
+      'http://10.0.0.5:8123',
+      'http://100.101.102.103',
+      'http://[fd00::1]',
+    ])('allows localhost / private-network IP Origin %s', async (origin) => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const res = await post(serverPort(httpServer), { Origin: origin });
+      expect(res.status).toBe(200);
+    });
+
+    it.each(['http://203.0.113.7', 'https://8.8.8.8:8443', 'http://[2001:db8::1]'])(
+      'rejects a public IP-literal Origin %s (anyone can serve a page from one)',
+      async (origin) => {
+        httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+        const res = await post(serverPort(httpServer), { Origin: origin });
+        expect(res.status).toBe(403);
+      },
+    );
+
+    it('allows the configured CORS origin and rejects others', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, {
+        corsOrigin: 'https://app.example.com',
+      });
+      const port = serverPort(httpServer);
+      expect((await post(port, { Origin: 'https://app.example.com' })).status).toBe(200);
+      expect((await post(port, { Origin: 'https://other.example.com' })).status).toBe(403);
+    });
+
+    it('also gates /mcp/messages', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const res = await rawPost(
+        serverPort(httpServer),
+        '/mcp/messages?sessionId=00000000-0000-4000-8000-000000000000',
+        { 'Content-Type': 'application/json', Origin: 'http://evil.example' },
+        JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it('is skipped when an access token is configured (token gate applies instead)', async () => {
+      const secret = 'origin-gate-token';
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, {
+        corsOrigin: '*',
+        accessToken: secret,
+      });
+      const port = serverPort(httpServer);
+      const ok = await post(port, {
+        Origin: 'http://evil.example',
+        Authorization: `Bearer ${secret}`,
+      });
+      expect(ok.status).toBe(200);
+      const noToken = await post(port, { Origin: 'http://evil.example' });
+      expect(noToken.status).toBe(401);
+    });
+  });
+
+  describe('request body errors', () => {
+    it('returns a JSON-RPC -32700 parse error (not HTML) for malformed JSON', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const res = await rawPost(
+        serverPort(httpServer),
+        '/mcp',
+        { Accept: STREAMABLE_ACCEPT, 'Content-Type': 'application/json' },
+        '{"jsonrpc":"2.0",',
+      );
+      expect(res.status).toBe(400);
+      expect(String(res.headers['content-type'])).toContain('application/json');
+      expect(res.headers['access-control-allow-origin']).toBe('*');
+      const json = JSON.parse(res.text) as { error: { code: number }; id: unknown };
+      expect(json.error.code).toBe(-32700);
+      expect(json.id).toBeNull();
+      expect(res.text).not.toContain('body-parser');
+    });
+  });
+
+  describe('session cleanup', () => {
+    it('frees the session and McpServer when the SDK rejects an initialize (406 Accept)', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const getCount = (httpServer as HttpServer & { getMcpSessionCount: () => number })
+        .getMcpSessionCount;
+      const before = activeServerCount();
+      const res = await rawPost(
+        serverPort(httpServer),
+        '/mcp',
+        { Accept: 'application/json', 'Content-Type': 'application/json' },
+        INITIALIZE_BODY,
+      );
+      expect(res.status).toBe(406);
+      expect(res.headers['mcp-session-id']).toBeUndefined();
+      expect(getCount()).toBe(0);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(activeServerCount()).toBe(before);
+    });
+
+    it('removes per-session McpServers from the shutdown set after DELETE', async () => {
+      httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, { corsOrigin: '*' });
+      const port = serverPort(httpServer);
+      const before = activeServerCount();
+      const init = await rawPost(
+        port,
+        '/mcp',
+        { Accept: STREAMABLE_ACCEPT, 'Content-Type': 'application/json' },
+        INITIALIZE_BODY,
+      );
+      const sessionId = init.headers['mcp-session-id'] as string;
+      expect(sessionId).toBeTruthy();
+      expect(activeServerCount()).toBe(before + 1);
+
+      const del = await fetch(`http://127.0.0.1:${port}/mcp`, {
+        method: 'DELETE',
+        headers: { Accept: STREAMABLE_ACCEPT, 'Mcp-Session-Id': sessionId },
+      });
+      expect(del.status).toBeLessThan(300);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(activeServerCount()).toBe(before);
+    });
+
+    it('removes reaped idle sessions from the shutdown set', async () => {
+      httpServer = await startHttpServer(
+        () => grocy.createMcpServer(),
+        0,
+        { corsOrigin: '*' },
+        { idleTimeoutMs: 100, sweepIntervalMs: 30 },
+      );
+      const before = activeServerCount();
+      await rawPost(
+        serverPort(httpServer),
+        '/mcp',
+        { Accept: STREAMABLE_ACCEPT, 'Content-Type': 'application/json' },
+        INITIALIZE_BODY,
+      );
+      expect(activeServerCount()).toBe(before + 1);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(activeServerCount()).toBe(before);
+    });
   });
 
   describe('access token gate', () => {

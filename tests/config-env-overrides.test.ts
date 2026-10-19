@@ -480,5 +480,37 @@ tools:
       expect(processExitSpy).toHaveBeenCalledWith(1);
       expect(processExitSpy).toHaveBeenCalledTimes(1);
     });
+
+    it.each([
+      ['HTTP_SERVER_PORT', '70000'],
+      ['HTTP_SERVER_PORT', '0'],
+      ['MCP_SESSION_SWEEP_INTERVAL_MS', '0'],
+      ['MCP_SESSION_IDLE_TIMEOUT_MS', '0'],
+      ['GROCY_MAX_RESPONSE_BYTES', '0'],
+      ['REST_RESPONSE_SIZE_LIMIT', '0'],
+    ])('should exit with code 1 when %s=%s is outside the YAML bounds', (name, value) => {
+      setupEnvironment({ [name]: value });
+
+      expect(() => attemptConfigCreation()).toThrow('process.exit called');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+      expect(processExitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['TRACE', 'trace', 'debug', 'Info', 'WARN', 'error'])(
+      'should accept LOG_LEVEL=%s (case-insensitive, TRACE allowed)',
+      (level) => {
+        setupEnvironment({ LOG_LEVEL: level });
+
+        expect(() => attemptConfigCreation()).not.toThrow();
+        expect(processExitSpy).not.toHaveBeenCalled();
+      },
+    );
+
+    it('should exit with code 1 when LOG_LEVEL is unknown', () => {
+      setupEnvironment({ LOG_LEVEL: 'VERBOSE' });
+
+      expect(() => attemptConfigCreation()).toThrow('process.exit called');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
   });
 });
