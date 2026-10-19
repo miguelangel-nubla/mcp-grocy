@@ -144,12 +144,11 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public consumeProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { productId, amount, spoiled = false, locationId, note } = args || {};
+      const { productId, amount, spoiled = false, locationId } = args || {};
       this.validateRequired({ productId, amount }, ['productId', 'amount']);
 
       const body: any = { amount, transaction_type: 'consume' };
       if (locationId) body.location_id = locationId;
-      if (note) body.note = note;
       if (spoiled) body.spoiled = true;
 
       const result = await this.apiCall(`/stock/products/${productId}/consume`, 'POST', body);
@@ -159,7 +158,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public transferProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { productId, amount, fromLocationId, toLocationId, note } = args || {};
+      const { productId, amount, fromLocationId, toLocationId } = args || {};
       this.validateRequired({ productId, amount, fromLocationId, toLocationId }, [
         'productId',
         'amount',
@@ -172,7 +171,6 @@ export class InventoryToolHandlers extends BaseToolHandler {
         location_id_from: fromLocationId,
         location_id_to: toLocationId,
       };
-      if (note) body.note = note;
 
       const result = await this.apiCall(`/stock/products/${productId}/transfer`, 'POST', body);
       return this.createSuccess(result, 'Product transferred successfully');
@@ -196,11 +194,10 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public openProduct: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { productId, amount = 1, note } = args || {};
+      const { productId, amount = 1 } = args || {};
       this.validateRequired({ productId }, ['productId']);
 
       const body: any = { amount };
-      if (note) body.note = note;
 
       const result = await this.apiCall(`/stock/products/${productId}/open`, 'POST', body);
       return this.createSuccess(result, 'Product opened successfully');
@@ -537,7 +534,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public consumeStockEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { stockId, productId, amount, spoiled = false, note } = args || {};
+      const { stockId, productId, amount, spoiled = false } = args || {};
       this.validateRequired({ stockId, productId, amount }, ['stockId', 'productId', 'amount']);
 
       const stockEntryResponse = await this.apiCall(`/stock/entry/${stockId}`);
@@ -562,8 +559,6 @@ export class InventoryToolHandlers extends BaseToolHandler {
         location_id: stockEntryResponse.location_id,
       };
 
-      if (note) body.note = note;
-
       const result = await this.apiCall(
         `/stock/products/${stockEntryResponse.product_id}/consume`,
         'POST',
@@ -575,7 +570,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public transferStockEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { stockId, productId, amount, locationIdTo, note } = args || {};
+      const { stockId, productId, amount, locationIdTo } = args || {};
       this.validateRequired({ stockId, productId, amount, locationIdTo }, [
         'stockId',
         'productId',
@@ -606,8 +601,6 @@ export class InventoryToolHandlers extends BaseToolHandler {
         stock_entry_id: stockEntryResponse.stock_id,
       };
 
-      if (note) body.note = note;
-
       const result = await this.apiCall(
         `/stock/products/${stockEntryResponse.product_id}/transfer`,
         'POST',
@@ -619,7 +612,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
 
   public openStockEntry: ToolHandler = async (args: any): Promise<ToolResult> => {
     return this.executeToolHandler(async () => {
-      const { stockId, productId, amount, note } = args || {};
+      const { stockId, productId, amount } = args || {};
       this.validateRequired({ stockId, productId, amount }, ['stockId', 'productId', 'amount']);
 
       const stockEntryResponse = await this.apiCall(`/stock/entry/${stockId}`);
@@ -642,7 +635,6 @@ export class InventoryToolHandlers extends BaseToolHandler {
         stock_entry_id: stockEntryResponse.stock_id,
         location_id: stockEntryResponse.location_id,
       };
-      if (note) body.note = note;
 
       const result = await this.apiCall(
         `/stock/products/${stockEntryResponse.product_id}/open`,

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { InventoryToolHandlers } from './handlers.js';
+import { inventoryToolDefinitions } from './definitions.js';
 
 // Mock API client
 vi.mock('../../api/client.js', () => ({
@@ -358,7 +359,6 @@ describe('InventoryToolHandlers', () => {
         toLocationId: 3,
         fromLocationId: 2,
         amount: 5,
-        note: 'Moving to pantry',
       };
 
       await handlers.transferProduct(args);
@@ -369,7 +369,6 @@ describe('InventoryToolHandlers', () => {
           amount: 5,
           location_id_from: 2,
           location_id_to: 3,
-          note: 'Moving to pantry',
         }),
         queryParams: {},
       });
@@ -398,7 +397,7 @@ describe('InventoryToolHandlers', () => {
       });
     });
 
-    it('should include note when provided', async () => {
+    it('should send only the amount (Grocy stores no note on open)', async () => {
       const mockResponse = { data: { success: true }, status: 200, headers: {} };
       mockApiClient.request.mockResolvedValue(mockResponse);
 
@@ -406,10 +405,7 @@ describe('InventoryToolHandlers', () => {
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/stock/products/5/open', {
         method: 'POST',
-        body: expect.objectContaining({
-          amount: 2,
-          note: 'Opening for family dinner',
-        }),
+        body: { amount: 2 },
         queryParams: {},
       });
     });
@@ -651,7 +647,6 @@ describe('InventoryToolHandlers', () => {
         productId: 1,
         amount: 2,
         spoiled: true,
-        note: 'Test note',
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/1', {
@@ -666,7 +661,6 @@ describe('InventoryToolHandlers', () => {
           spoiled: true,
           stock_entry_id: 'abc123',
           location_id: 1,
-          note: 'Test note',
         },
         queryParams: {},
       });
@@ -717,7 +711,6 @@ describe('InventoryToolHandlers', () => {
         productId: 1,
         amount: 2,
         locationIdTo: 3,
-        note: 'Transfer note',
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/1', {
@@ -733,7 +726,6 @@ describe('InventoryToolHandlers', () => {
           location_id_to: 3,
           transaction_type: 'transfer',
           stock_entry_id: 'abc123',
-          note: 'Transfer note',
         },
         queryParams: {},
       });
@@ -778,7 +770,6 @@ describe('InventoryToolHandlers', () => {
         stockId: 1,
         productId: 1,
         amount: 1,
-        note: 'Opening note',
       });
 
       expect(mockApiClient.request).toHaveBeenCalledWith('/stock/entry/1', {
@@ -792,7 +783,6 @@ describe('InventoryToolHandlers', () => {
           amount: 1,
           stock_entry_id: 'abc123',
           location_id: 1,
-          note: 'Opening note',
         },
         queryParams: {},
       });
@@ -953,5 +943,47 @@ describe('InventoryToolHandlers', () => {
         handlers.splitStockEntry(mockOriginalEntry, [1, -1], getUnitForm),
       ).rejects.toThrow('Invalid amount at index 1: -1');
     });
+  });
+});
+
+describe('inventory tool definitions', () => {
+  const props = (name: string) =>
+    (inventoryToolDefinitions.find((d) => d.name === name)!.inputSchema.properties ?? {}) as Record<
+      string,
+      any
+    >;
+
+  it.each([
+    'inventory_transactions_consume',
+    'inventory_transactions_transfer',
+    'inventory_transactions_open',
+    'inventory_stock_entry_consume',
+    'inventory_stock_entry_transfer',
+    'inventory_stock_entry_open',
+  ])('%s offers no note (Grocy does not store one)', (name) => {
+    expect(props(name)).not.toHaveProperty('note');
+  });
+
+  it.each(['inventory_transactions_purchase', 'inventory_transactions_adjust'])(
+    '%s keeps its note',
+    (name) => {
+      expect(props(name)).toHaveProperty('note');
+    },
+  );
+
+  it('inventory_products_get offers only real product columns', () => {
+    const fields: string[] = props('inventory_products_get').fields.items.enum;
+    for (const gone of [
+      'qu_factor_purchase_to_stock',
+      'allow_label_per_unit',
+      'energy_per_stock_unit',
+      'calories_per_stock_unit',
+      'calories_per_unit_factor',
+    ]) {
+      expect(fields).not.toContain(gone);
+    }
+    expect(fields).toEqual(expect.arrayContaining(['calories', 'qu_id_consume', 'due_type']));
+    const description: string = props('inventory_products_get').fields.description;
+    for (const f of fields) expect(description).toContain(f);
   });
 });

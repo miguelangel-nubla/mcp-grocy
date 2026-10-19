@@ -195,7 +195,6 @@ use_mcp_tool('mcp-grocy', 'inventory_stock_entry_transfer', {
   productId: 1,
   amount: 1,
   locationIdTo: 2,
-  note: 'Moving to kitchen',
 });
 ```
 
