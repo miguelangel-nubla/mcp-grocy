@@ -229,7 +229,7 @@ describe('InventoryToolHandlers', () => {
         body: expect.objectContaining({
           amount: 2,
           spoiled: true,
-          transaction_type: 'inventory-correction',
+          transaction_type: 'consume',
         }),
         queryParams: {},
       });

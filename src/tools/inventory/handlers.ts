@@ -123,10 +123,7 @@ export class InventoryToolHandlers extends BaseToolHandler {
       const { productId, amount, spoiled = false, locationId, note } = args || {};
       this.validateRequired({ productId, amount }, ['productId', 'amount']);
 
-      const body: any = {
-        amount,
-        transaction_type: spoiled ? 'inventory-correction' : 'consume',
-      };
+      const body: any = { amount, transaction_type: 'consume' };
       if (locationId) body.location_id = locationId;
       if (note) body.note = note;
       if (spoiled) body.spoiled = true;
