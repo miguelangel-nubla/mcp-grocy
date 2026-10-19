@@ -119,11 +119,29 @@ export class GrocyApiClient {
         requestConfig.data = body;
       }
 
-      const response = await this.axiosInstance.request(requestConfig);
+      let response;
+      try {
+        response = await this.axiosInstance.request(requestConfig);
+      } catch (error) {
+        // Transport failures (connection refused, DNS, timeout, TLS, size limit) reject with
+        // an AxiosError whose config carries the GROCY-API-KEY header. Keep only the message
+        // and code so the key never reaches logs or tool results.
+        if (axios.isAxiosError(error)) {
+          throw new ApiError(error.message, error.response?.status, `${method} ${url}`, {
+            code: error.code,
+          });
+        }
+        throw error;
+      }
 
       if (response.status >= 400) {
         throw new ApiError(
-          response.data?.message || `HTTP ${response.status} error`,
+          response.data?.error_message ||
+            response.data?.message ||
+            // Grocy answers a rejected API key with an empty 401
+            (response.status === 401
+              ? 'HTTP 401: Grocy rejected the API key (check GROCY_API_KEY)'
+              : `HTTP ${response.status} error`),
           response.status,
           `${method} ${url}`,
           { responseData: response.data },

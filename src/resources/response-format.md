@@ -133,7 +133,7 @@ If an error occurs with a specialized tool, the response will typically look lik
   "content": [
     {
       "type": "text",
-      "text": "{\"error\": \"Failed to get stock: API error (401) Unauthorized - Please check your API key and permissions.\"}"
+      "text": "Error: Tool execution failed: HTTP 401: Grocy rejected the API key (check GROCY_API_KEY)"
     }
   ],
   "isError": true
@@ -142,12 +142,12 @@ If an error occurs with a specialized tool, the response will typically look lik
 
 ## Error response example for `system_dev_test_request`
 
-If **`system_dev_test_request`** encounters an API error (e.g., authentication failure):
+If **`system_dev_test_request`** gets an error status from Grocy (e.g., a request Grocy rejects with 400). Grocy puts the reason in `error_message`; a rejected API key is an empty 401 with no body.
 
 ```json
 {
   "request": {
-    "url": "https://your-own-demo.grocy.info/api/objects/products",
+    "url": "https://your-own-demo.grocy.info/api/stock/products/999",
     "method": "GET",
     "headers": {
       "GROCY-API-KEY": "[REDACTED]"
@@ -156,17 +156,15 @@ If **`system_dev_test_request`** encounters an API error (e.g., authentication f
     "authMethod": "apikey"
   },
   "response": {
-    "statusCode": 401,
-    "statusText": "Unauthorized",
+    "statusCode": 400,
     "timing": "50ms",
-    "headers": {/* ... headers ... */},
     "body": {
-      "error_message": "API key is missing or invalid."
+      "error_message": "Product does not exist or is inactive"
     }
   },
   "validation": {
     "isError": true,
-    "messages": ["Request failed with status 401", "API key is missing or invalid."]
+    "messages": ["Request failed with status 400", "Product does not exist or is inactive"]
   }
 }
 ```

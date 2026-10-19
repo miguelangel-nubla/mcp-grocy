@@ -31,7 +31,7 @@ export class AppError extends Error {
     this.operation = operation;
     this.details = details;
 
-    Object.setPrototypeOf(this, AppError.prototype);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 
   toMcpError(): McpError {
@@ -67,7 +67,9 @@ export class ApiError extends AppError {
   static fromAxiosError(error: any, operation?: string): ApiError {
     if (error.response) {
       return new ApiError(
-        error.response.data?.message || `HTTP ${error.response.status}`,
+        error.response.data?.error_message ||
+          error.response.data?.message ||
+          `HTTP ${error.response.status}`,
         error.response.status,
         operation,
         { url: error.config?.url, method: error.config?.method },
@@ -135,7 +137,13 @@ export class ErrorHandler {
         details: error.details,
       });
     } else {
-      logger.error(fullContext, 'ERROR', { error });
+      // Never serialize the raw error: objects such as AxiosError carry request config and
+      // headers (including the API key) in their JSON form.
+      logger.error(fullContext, 'ERROR', {
+        name: error?.name,
+        code: error?.code,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     }
   }
 

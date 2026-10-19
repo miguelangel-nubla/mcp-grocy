@@ -188,6 +188,56 @@ describe('GrocyApiClient', () => {
 
       await expect(client.request('/test')).rejects.toThrow('timeout of 30000ms exceeded');
     });
+
+    it('should use the Grocy error_message for HTTP errors', async () => {
+      mockAxiosInstance.request.mockResolvedValue({
+        data: { error_message: 'Amount to be consumed cannot be > current stock amount' },
+        status: 400,
+        headers: {},
+      });
+
+      await expect(client.request('/test')).rejects.toThrow(
+        'Amount to be consumed cannot be > current stock amount',
+      );
+    });
+
+    it('should explain the empty 401 Grocy returns for a rejected API key', async () => {
+      mockAxiosInstance.request.mockResolvedValue({ data: '', status: 401, headers: {} });
+
+      await expect(client.request('/test')).rejects.toThrow('Grocy rejected the API key');
+    });
+
+    it('should never log the API key when a transport error carries request config', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const axiosError = new Error('connect ECONNREFUSED 127.0.0.1:9283') as any;
+      axiosError.name = 'AxiosError';
+      axiosError.code = 'ECONNREFUSED';
+      axiosError.config = { url: '/api/test', headers: { 'GROCY-API-KEY': 'test-api-key' } };
+      axiosError.toJSON = () => ({ message: axiosError.message, config: axiosError.config });
+      mockAxiosInstance.request.mockRejectedValue(axiosError);
+      vi.mocked(mockedAxios.isAxiosError).mockReturnValue(true);
+
+      try {
+        const rejection = client.request('/test');
+        await expect(rejection).rejects.toMatchObject({ name: 'ApiError', category: 'API' });
+        await expect(rejection).rejects.toThrow('connect ECONNREFUSED 127.0.0.1:9283');
+        await rejection.catch((e: any) => {
+          expect(e.details).toEqual({ code: 'ECONNREFUSED' });
+          expect(JSON.stringify(e)).not.toContain('test-api-key');
+        });
+        const logged = [errorSpy, warnSpy, logSpy]
+          .flatMap((spy) => spy.mock.calls.flat())
+          .map(String)
+          .join('\n');
+        expect(logged).not.toContain('test-api-key');
+      } finally {
+        errorSpy.mockRestore();
+        warnSpy.mockRestore();
+        logSpy.mockRestore();
+      }
+    });
   });
 
   describe('convenience methods', () => {
