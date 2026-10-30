@@ -168,6 +168,25 @@ docker compose up -d
    - `GROCY_API_KEY` - Your Grocy API key
    - `GROCY_ENABLE_DEV_TOOLS=true` - only if you want the raw API tools (`system_dev_*`); they stay off otherwise, and refuse writes that skip Grocy's unit conversion
 
+### Secrets from files
+
+The secret-bearing variables `GROCY_API_KEY` and `MCP_HTTP_ACCESS_TOKEN` (Bearer token required on the HTTP/SSE endpoints when set) can instead be read from a file, Docker secrets style: set `GROCY_API_KEY_FILE` / `MCP_HTTP_ACCESS_TOKEN_FILE` to the file's path (any path works, e.g. `/run/secrets/grocy_api_key`). One trailing newline (`\n` or `\r\n`) is stripped. `<NAME>_FILE` wins over `<NAME>` when both are set; an unreadable or empty file stops the server at startup with an error naming the variable and path.
+
+```yaml
+services:
+  mcp-grocy:
+    image: ghcr.io/miguelangel-nubla/mcp-grocy:latest
+    environment:
+      GROCY_BASE_URL: http://your-grocy-instance
+      GROCY_API_KEY_FILE: /run/secrets/grocy_api_key
+    secrets:
+      - grocy_api_key
+
+secrets:
+  grocy_api_key:
+    file: ./grocy_api_key.txt
+```
+
 ### Configuration Options
 
 | Method                    | Use Case                   | Command                                          |

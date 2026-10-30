@@ -15,6 +15,41 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 /** Default cap for Grocy HTTP response bodies (axios maxContentLength), in bytes */
 export const DEFAULT_MAX_RESPONSE_BYTES = 52_428_800; // 50 MiB
 
+/**
+ * Secret-bearing variables that may instead be read from a file named by `<NAME>_FILE`
+ * (Docker secrets style), so the value never has to sit in the process environment.
+ */
+export const FILE_ENV_VARS = ['GROCY_API_KEY', 'MCP_HTTP_ACCESS_TOKEN'] as const;
+
+/**
+ * Return a copy of `env` where each `<NAME>` in `names` whose `<NAME>_FILE` is set (non-empty)
+ * takes its value from that file, minus one trailing newline. `<NAME>_FILE` wins over `<NAME>`.
+ * Throws when the file cannot be read or is empty; the message names the variable and path, never the value.
+ */
+export function resolveFileEnv(
+  env: NodeJS.ProcessEnv,
+  names: readonly string[] = FILE_ENV_VARS,
+): NodeJS.ProcessEnv {
+  const resolved = { ...env };
+  for (const name of names) {
+    const path = env[`${name}_FILE`];
+    if (!path) continue;
+    let value: string;
+    try {
+      value = readFileSync(path, 'utf8');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? 'read error';
+      throw new Error(`${name}_FILE: cannot read ${path} (${code})`, { cause: error });
+    }
+    value = value.replace(/\r?\n$/, '');
+    if (value === '') {
+      throw new Error(`${name}_FILE: ${path} is empty`);
+    }
+    resolved[name] = value;
+  }
+  return resolved;
+}
+
 // Environment schema
 const EnvironmentSchema = z.object({
   // Grocy Configuration
@@ -218,8 +253,15 @@ export class ConfigManager {
   }
 
   private loadEnvironment(): Environment {
+    let env: NodeJS.ProcessEnv;
     try {
-      return EnvironmentSchema.parse(process.env);
+      env = resolveFileEnv(process.env);
+    } catch (error) {
+      logger.error((error as Error).message, 'CONFIG');
+      process.exit(1);
+    }
+    try {
+      return EnvironmentSchema.parse(env);
     } catch (error) {
       if (error instanceof z.ZodError) {
         logger.error('Invalid environment variables', 'CONFIG');

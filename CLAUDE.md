@@ -166,6 +166,7 @@ tools:
 - `LOG_CATEGORIES` - Comma-separated category filter
 - `NODE_ENV` - Environment mode (development, production, test)
 - `GROCY_ENABLE_DEV_TOOLS` - `true` allows the raw API tools (`system_dev_*`) that YAML enables; anything else keeps them off
+- `GROCY_API_KEY_FILE` / `MCP_HTTP_ACCESS_TOKEN_FILE` - read that secret from a file instead (`resolveFileEnv` in `src/config/index.ts`, list in `FILE_ENV_VARS`); the file wins, one trailing newline stripped, unreadable/empty file exits at startup
 
 ### Grocy amounts are stored in the stock unit
 

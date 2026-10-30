@@ -11,6 +11,11 @@ Advanced configuration reference for the **mcp-grocy** npm package (this MCP ser
 | `GROCY_BASE_URL` | Your Grocy instance URL | `http://localhost:9283` | ✅       |
 | `GROCY_API_KEY`  | Your Grocy API key      | -                       | ✅       |
 
+Secret-bearing variables (`GROCY_API_KEY`, `MCP_HTTP_ACCESS_TOKEN`) can also be read from a file:
+set `<NAME>_FILE` to its path (e.g. `GROCY_API_KEY_FILE=/run/secrets/grocy_api_key`). One trailing
+newline is stripped, `<NAME>_FILE` wins over `<NAME>`, and an unreadable or empty file is a startup
+error.
+
 ### Optional Variables
 
 | Variable                   | Description                  | Default | Example |
