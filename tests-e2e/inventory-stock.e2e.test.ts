@@ -105,12 +105,34 @@ describe('inventory stock queries and stock entries', () => {
       expect(ids.slice(0, 2)).toEqual([exact.id, wordStart.id]);
 
       const top = result.data.productMatches[0];
-      expect(top).toMatchObject({ productName: exact.name, totalStockAmount: 2 });
+      expect(top).toMatchObject({
+        productName: exact.name,
+        defaultLocationId: fx.pantry,
+        totalStockAmount: 2,
+      });
       expect(top.unit.id).toBe(fx.piece);
       expect(top.stockEntries).toEqual([expect.objectContaining({ locationId: fx.cellar })]);
-      expect(result.data.allAvailableLocations).toEqual(
-        expect.arrayContaining([expect.objectContaining({ id: fx.cellar })]),
+      expect(result.data.referencedLocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: fx.pantry }),
+          expect.objectContaining({ id: fx.cellar }),
+        ]),
       );
+    });
+
+    it('matches a product with a single-character phonetic/typo difference (e.g. "mambo" -> "- Mango")', async () => {
+      const suffix = Date.now().toString(36);
+      const mango = await seedProduct(grocy, fx, 'lookup-typo', { name: `- Mango ${suffix}` });
+      await seedStock(grocy, mango.id, 3, { location_id: fx.pantry });
+
+      const result = await mcp.ok('inventory_products_lookup', {
+        productName: `mambo ${suffix}`,
+      });
+      expect(result.data.productMatches[0]).toMatchObject({
+        productId: mango.id,
+        productName: mango.name,
+        totalStockAmount: 3,
+      });
     });
 
     it('flags a product stocked in more than one location', async () => {
@@ -161,6 +183,7 @@ describe('inventory stock queries and stock entries', () => {
       expect([...ids].sort()).toEqual([...cellarIds].sort());
       const row = result.data.find((r: any) => r.id === late.id);
       expect(Number(row.product_id)).toBe(p.id);
+      expect(row.product_name).toBe(p.name);
       expect(Number(row.amount)).toBe(3);
     });
 

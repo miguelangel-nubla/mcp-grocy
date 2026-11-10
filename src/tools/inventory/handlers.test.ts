@@ -93,24 +93,50 @@ describe('InventoryToolHandlers', () => {
 
   describe('getStockByLocation', () => {
     it('should call the location entries endpoint and return essential fields', async () => {
-      mockApiClient.request.mockResolvedValue({
-        data: [
-          {
-            id: 7,
-            product_id: 42,
-            location_id: 3,
-            amount: 2,
-            best_before_date: '2026-11-01',
-            purchased_date: '2026-10-01',
-            stock_id: 'abc',
-            open: 0,
-            note: null,
-            price: 1.5,
-            row_created_timestamp: '2026-10-01 10:00:00',
-          },
-        ],
-        status: 200,
-        headers: {},
+      mockApiClient.request.mockImplementation(async (endpoint: string) => {
+        if (endpoint === '/stock/locations/3/entries') {
+          return {
+            data: [
+              {
+                id: 7,
+                product_id: 42,
+                location_id: 3,
+                amount: 2,
+                best_before_date: '2026-11-01',
+                purchased_date: '2026-10-01',
+                stock_id: 'abc',
+                open: 0,
+                note: null,
+                price: 1.5,
+                row_created_timestamp: '2026-10-01 10:00:00',
+              },
+              {
+                id: 8,
+                product_id: 81,
+                location_id: 3,
+                amount: 4.785,
+                best_before_date: '2026-11-14',
+                purchased_date: '2026-11-07',
+                stock_id: 'def',
+                open: 0,
+                note: 'receipt:16|2026-11-07T18:13|2715|0|mango|160|589 mango',
+              },
+            ],
+            status: 200,
+            headers: {},
+          };
+        }
+        if (endpoint === '/objects/products') {
+          return {
+            data: [
+              { id: 42, name: 'Milk' },
+              { id: 81, name: '- Mango' },
+            ],
+            status: 200,
+            headers: {},
+          };
+        }
+        return { data: [], status: 200, headers: {} };
       });
 
       const result = await handlers.getStockByLocation({ locationId: 3 });
@@ -125,10 +151,22 @@ describe('InventoryToolHandlers', () => {
         {
           id: 7,
           product_id: 42,
+          product_name: 'Milk',
           amount: 2,
           best_before_date: '2026-11-01',
           purchased_date: '2026-10-01',
           stock_id: 'abc',
+          open: 0,
+          note: null,
+        },
+        {
+          id: 8,
+          product_id: 81,
+          product_name: '- Mango',
+          amount: 4.785,
+          best_before_date: '2026-11-14',
+          purchased_date: '2026-11-07',
+          stock_id: 'def',
           open: 0,
           note: null,
         },
@@ -524,7 +562,58 @@ describe('InventoryToolHandlers', () => {
       const data = (result.structuredContent as any).data;
 
       expect(data.productMatches[0].productId).toBe(61);
-      expect(data.allAvailableLocations).toEqual([{ id: 2, name: 'Nevera' }]);
+      expect(data.productMatches[0].defaultLocationId).toBeNull();
+      expect(data.referencedLocations).toEqual([{ id: 2, name: 'Nevera' }]);
+    });
+
+    it('should rank close phonetic/typo word matches (e.g. "mambo" -> "- Mango") first and filter unreferenced locations', async () => {
+      const mockProducts = [
+        { id: 534, name: '*Gambones a la plancha', qu_id_stock: 38, location_id: 13 },
+        { id: 288, name: 'Frambuesa', qu_id_stock: 4, location_id: 2 },
+        { id: 362, name: 'Nabo', qu_id_stock: 2, location_id: 2 },
+        { id: 515, name: '*Salsa boloñesa', qu_id_stock: 38, location_id: 14 },
+        { id: 521, name: '*Lasaña boloñesa', qu_id_stock: 38, location_id: 14 },
+        { id: 81, name: '- Mango', qu_id_stock: 2, location_id: 2 },
+      ];
+      const mockLocations = [
+        { id: 2, name: 'Nevera' },
+        { id: 13, name: 'Congelador precocinados' },
+        { id: 14, name: 'Congelador tuppers' },
+        { id: 99, name: 'Unused Storage Room' },
+      ];
+      mockApiClient.request.mockImplementation(async (endpoint: string) => {
+        if (endpoint === '/objects/products')
+          return { data: mockProducts, status: 200, headers: {} };
+        if (endpoint === '/objects/locations')
+          return { data: mockLocations, status: 200, headers: {} };
+        if (endpoint === '/objects/quantity_units')
+          return { data: [{ id: 2, name: 'Unidad' }], status: 200, headers: {} };
+        if (endpoint === '/stock/products/81/entries')
+          return {
+            data: [{ id: 3377, amount: 2.7, best_before_date: '2026-10-21', location_id: '2' }],
+            status: 200,
+            headers: {},
+          };
+        return { data: [], status: 200, headers: {} };
+      });
+
+      const result = await handlers.lookupProduct({ productName: 'mambo' });
+      const data = (result.structuredContent as any).data;
+
+      expect(data.productMatches[0].productId).toBe(81);
+      expect(data.productMatches[0].productName).toBe('- Mango');
+      expect(data.productMatches[0].defaultLocationId).toBe(2);
+      expect(data.productMatches[0].stockEntries[0]).toEqual({
+        amount: 2.7,
+        bestBeforeDate: '2026-10-21',
+        stockId: 3377,
+        locationId: 2,
+      });
+      expect(data.referencedLocations).not.toContainEqual({
+        id: 99,
+        name: 'Unused Storage Room',
+      });
+      expect(data.referencedLocations).toContainEqual({ id: 2, name: 'Nevera' });
     });
 
     it('should return error when no products found', async () => {

@@ -132,7 +132,7 @@ export const inventoryToolDefinitions: ToolDefinition[] = [
   {
     name: 'inventory_stock_get_by_location',
     description:
-      '[INVENTORY/STOCK] Everything stocked in **one storage location** (needs locationId from system_locations_get). Returns stock entry rows (id, product_id, amount, dates, open, note); product names via inventory_products_get. Use when the user asks what is in the freezer/pantry—not for one named product across sites (use inventory_stock_get_by_product).',
+      '[INVENTORY/STOCK] Everything stocked in **one storage location** (needs locationId from system_locations_get). Returns stock entry rows (id, product_id, product_name, amount, dates, open, note). Use when the user asks what is in the freezer/pantry—not for one named product across sites (use inventory_stock_get_by_product).',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',

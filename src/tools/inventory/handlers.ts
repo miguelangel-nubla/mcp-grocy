@@ -102,8 +102,17 @@ export class InventoryToolHandlers extends BaseToolHandler {
       this.validateRequired({ locationId }, ['locationId']);
 
       // GET /stock returns one aggregated row per product (no location_id), so use the
-      // dedicated location entries endpoint
-      const stockEntries = await this.apiCall(`/stock/locations/${locationId}/entries`);
+      // dedicated location entries endpoint and enrich with product names
+      const [stockEntries, productsResponse] = await Promise.all([
+        this.apiCall(`/stock/locations/${locationId}/entries`),
+        this.apiCall('/objects/products').catch(() => []),
+      ]);
+
+      const productsById = new Map<number, string>(
+        (Array.isArray(productsResponse) ? productsResponse : [])
+          .filter((p: any) => p && p.id !== undefined && p.id !== null && p.name)
+          .map((p: any) => [Number(p.id), String(p.name)]),
+      );
 
       const entryFields = [
         'id',
@@ -117,7 +126,17 @@ export class InventoryToolHandlers extends BaseToolHandler {
       ];
 
       const filteredEntries = Array.isArray(stockEntries)
-        ? this.filterFields(stockEntries, entryFields)
+        ? this.filterFields(stockEntries, entryFields).map((entry: any) => {
+            const productName = productsById.get(Number(entry.product_id));
+            return {
+              ...entry,
+              ...(productName !== undefined ? { product_name: productName } : {}),
+              note:
+                typeof entry.note === 'string' && entry.note.startsWith('receipt:')
+                  ? null
+                  : entry.note,
+            };
+          })
         : [];
 
       return this.createSuccess(filteredEntries);
@@ -283,7 +302,8 @@ export class InventoryToolHandlers extends BaseToolHandler {
       }
 
       // Fuse ignores location, so "pera" scores as well inside "Emperador" as in "Peras".
-      // Rank exact names, then word-start matches, then substrings ahead of fuzzy-only hits.
+      // Rank exact names, then word-start matches, then substrings, then close phonetic/typo
+      // word matches (e.g. STT "mambo" -> "- Mango") ahead of weak fuzzy hits.
       const normalize = (text: string) =>
         String(text ?? '')
           .normalize('NFD')
@@ -291,17 +311,92 @@ export class InventoryToolHandlers extends BaseToolHandler {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, ' ')
           .trim();
+
+      const levenshtein = (a: string, b: string): number => {
+        if (a === b) return 0;
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+        const curr = new Array<number>(b.length + 1).fill(0);
+        for (let i = 1; i <= a.length; i++) {
+          curr[0] = i;
+          for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            curr[j] = Math.min(curr[j - 1]! + 1, prev[j]! + 1, prev[j - 1]! + cost);
+          }
+          for (let j = 0; j <= b.length; j++) prev[j] = curr[j]!;
+        }
+        return prev[b.length]!;
+      };
+
       const query = normalize(productName);
+      const queryWords = query ? query.split(' ') : [];
+
+      const minWordEditRatio = (normalizedName: string): number => {
+        if (!query || !normalizedName) return 1;
+        const fullDist = levenshtein(query, normalizedName);
+        const fullFirstCharPenalty = query[0] !== normalizedName[0] ? 0.5 : 0;
+        let bestRatio =
+          (fullDist + fullFirstCharPenalty) / Math.max(query.length, normalizedName.length, 1);
+        const nameWords = normalizedName.split(' ');
+        for (const qWord of queryWords) {
+          if (qWord.length < 3) continue;
+          for (const nWord of nameWords) {
+            if (!nWord) continue;
+            const dist = levenshtein(qWord, nWord);
+            const firstCharPenalty = qWord[0] !== nWord[0] ? 0.5 : 0;
+            const ratio = (dist + firstCharPenalty) / Math.max(qWord.length, nWord.length, 1);
+            if (ratio < bestRatio) bestRatio = ratio;
+          }
+        }
+        return bestRatio;
+      };
+
       const matchTier = (name: string) => {
         const normalizedName = normalize(name);
+        if (!query) return 4;
         if (normalizedName === query) return 0;
         if (` ${normalizedName}`.includes(` ${query}`)) return 1;
         if (normalizedName.includes(query)) return 2;
-        return 3;
+        if (minWordEditRatio(normalizedName) <= 0.34) return 3;
+        return 4;
       };
+
+      // Also include close edit-distance candidates that Fuse's bitap might have missed or
+      // scored poorly due to leading punctuation (e.g. "- Mango" for "mambo")
+      if (query.length >= 3) {
+        const matchedIds = new Set(productMatches.map((m: any) => m.id));
+        for (const product of products) {
+          if (matchedIds.has(product.id)) continue;
+          const ratio = minWordEditRatio(normalize(product.name));
+          if (ratio <= 0.34) {
+            productMatches.push({
+              ...product,
+              matchScore: Math.round((1 - ratio) * 100),
+              fuseScore: ratio,
+              matches: [],
+            });
+          }
+        }
+      }
+
       productMatches = productMatches
-        .map((match: any) => ({ match, tier: matchTier(match.name) }))
-        .sort((a: any, b: any) => a.tier - b.tier || a.match.fuseScore - b.match.fuseScore)
+        .map((match: any) => {
+          const normalizedName = normalize(match.name);
+          return {
+            match,
+            tier: matchTier(match.name),
+            editRatio: minWordEditRatio(normalizedName),
+            wordCount: normalizedName ? normalizedName.split(' ').length : 99,
+          };
+        })
+        .sort(
+          (a: any, b: any) =>
+            a.tier - b.tier ||
+            a.editRatio - b.editRatio ||
+            a.wordCount - b.wordCount ||
+            a.match.fuseScore - b.match.fuseScore,
+        )
         .map(({ match }: any) => match)
         .slice(0, 5);
 
@@ -349,9 +444,15 @@ export class InventoryToolHandlers extends BaseToolHandler {
             ? 'IMPORTANT: This product has stock in multiple locations. Make sure the user requested a specific location or confirm the locationId before performing any operations.'
             : undefined;
 
+          const defaultLocationId =
+            product.location_id !== undefined && product.location_id !== null
+              ? Number(product.location_id)
+              : null;
+
           return {
             productId: product.id,
             productName: product.name,
+            defaultLocationId,
             stockEntries: stockEntries,
             totalStockAmount: productEntries.reduce(
               (sum: number, s: any) => sum + parseFloat(s.amount || 0),
@@ -363,12 +464,37 @@ export class InventoryToolHandlers extends BaseToolHandler {
         }),
       );
 
+      const referencedLocationIds = new Set<number>();
+      for (const product of productMatches) {
+        if (product.location_id !== undefined && product.location_id !== null) {
+          referencedLocationIds.add(Number(product.location_id));
+        }
+        if (
+          product.default_consume_location_id !== undefined &&
+          product.default_consume_location_id !== null
+        ) {
+          referencedLocationIds.add(Number(product.default_consume_location_id));
+        }
+      }
+      for (const match of enrichedMatches) {
+        for (const entry of match.stockEntries) {
+          if (Number.isFinite(entry.locationId)) {
+            referencedLocationIds.add(entry.locationId);
+          }
+        }
+      }
+
+      const relevantLocations =
+        referencedLocationIds.size > 0
+          ? locations.filter((l: any) => referencedLocationIds.has(Number(l.id)))
+          : locations;
+
       return this.createSuccess({
         message: `Found ${enrichedMatches.length} product matches for "${productName}" (ordered from most likely to least likely match)`,
         productMatches: enrichedMatches,
-        allAvailableLocations: locations.map((l: any) => ({ id: l.id, name: l.name })),
+        referencedLocations: relevantLocations.map((l: any) => ({ id: l.id, name: l.name })),
         instructions:
-          'Review the matches above. Use the exact productId and locationId from this data for any product operations (inventory_transactions_consume, inventory_stock_entry_consume, inventory_stock_entry_transfer, inventory_transactions_purchase, inventory_transactions_adjust, etc.).',
+          'Review the matches above. Use the exact productId, stockId, and locationId from this data for any product operations (inventory_transactions_consume, inventory_stock_entry_consume, inventory_stock_entry_transfer, inventory_transactions_purchase, inventory_transactions_adjust, etc.). For other storage locations not in referencedLocations, call system_locations_get.',
       });
     });
   };
