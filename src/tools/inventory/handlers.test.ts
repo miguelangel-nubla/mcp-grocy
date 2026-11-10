@@ -617,6 +617,29 @@ describe('InventoryToolHandlers', () => {
       expect(data.referencedLocations).toContainEqual({ id: 2, name: 'Nevera' });
     });
 
+    it('should prioritize multi-word matches over single-word partial matches (e.g. "zumo de melocotón")', async () => {
+      const mockProducts = [
+        { id: 143, name: '- Zumo', qu_id_stock: 6, location_id: 2 },
+        { id: 305, name: '- Melocotón', qu_id_stock: 4, location_id: 2 },
+        { id: 667, name: 'Zumo melocotón', qu_id_stock: 6, location_id: 2 },
+      ];
+      mockApiClient.request.mockImplementation(async (endpoint: string) => {
+        if (endpoint === '/objects/products')
+          return { data: mockProducts, status: 200, headers: {} };
+        if (endpoint === '/objects/locations')
+          return { data: [{ id: 2, name: 'Nevera' }], status: 200, headers: {} };
+        if (endpoint === '/objects/quantity_units')
+          return { data: [{ id: 6, name: 'Litro' }], status: 200, headers: {} };
+        return { data: [], status: 200, headers: {} };
+      });
+
+      const result = await handlers.lookupProduct({ productName: 'zumo de melocotón' });
+      const data = (result.structuredContent as any).data;
+
+      expect(data.productMatches[0].productId).toBe(667);
+      expect(data.productMatches[0].productName).toBe('Zumo melocotón');
+    });
+
     it('should omit disabled tools from lookupProduct instructions', async () => {
       const parseSpy = vi.spyOn(config, 'parseToolConfiguration').mockReturnValue({
         enabledTools: new Set([

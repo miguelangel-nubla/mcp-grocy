@@ -333,6 +333,28 @@ export class InventoryToolHandlers extends BaseToolHandler {
       const query = normalize(productName);
       const queryWords = query ? query.split(' ') : [];
 
+      // Stop words in Spanish (and English) that don't differentiate products
+      const stopWords = new Set([
+        'de',
+        'del',
+        'la',
+        'el',
+        'los',
+        'las',
+        'un',
+        'una',
+        'con',
+        'y',
+        'en',
+        'a',
+        'al',
+        'of',
+        'and',
+      ]);
+      const significantQueryWords = queryWords.filter((w) => w.length > 1 && !stopWords.has(w));
+      const activeQueryWords =
+        significantQueryWords.length > 0 ? significantQueryWords : queryWords;
+
       const minWordEditRatio = (normalizedName: string): number => {
         if (!query || !normalizedName) return 1;
         const fullDist = levenshtein(query, normalizedName);
@@ -351,6 +373,27 @@ export class InventoryToolHandlers extends BaseToolHandler {
           }
         }
         return bestRatio;
+      };
+
+      const wordMatchCount = (normalizedName: string): number => {
+        if (!activeQueryWords.length || !normalizedName) return 0;
+        const nameWords = normalizedName.split(' ');
+        let matches = 0;
+        for (const qWord of activeQueryWords) {
+          const matched = nameWords.some((nWord) => {
+            if (nWord === qWord) return true;
+            if (qWord.length >= 4 && nWord.startsWith(qWord)) return true;
+            if (nWord.length >= 4 && qWord.startsWith(nWord)) return true;
+            if (qWord.length >= 4 && nWord.length >= 4) {
+              const dist = levenshtein(qWord, nWord);
+              const firstCharPenalty = qWord[0] !== nWord[0] ? 0.5 : 0;
+              return (dist + firstCharPenalty) / Math.max(qWord.length, nWord.length) <= 0.34;
+            }
+            return false;
+          });
+          if (matched) matches++;
+        }
+        return matches;
       };
 
       const matchTier = (name: string) => {
@@ -387,12 +430,14 @@ export class InventoryToolHandlers extends BaseToolHandler {
           return {
             match,
             tier: matchTier(match.name),
+            wordMatches: wordMatchCount(normalizedName),
             editRatio: minWordEditRatio(normalizedName),
             wordCount: normalizedName ? normalizedName.split(' ').length : 99,
           };
         })
         .sort(
           (a: any, b: any) =>
+            b.wordMatches - a.wordMatches ||
             a.tier - b.tier ||
             a.editRatio - b.editRatio ||
             a.wordCount - b.wordCount ||
