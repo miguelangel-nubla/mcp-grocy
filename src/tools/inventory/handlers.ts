@@ -1,6 +1,7 @@
 import { BaseToolHandler } from '../base.js';
 import { ToolResult, ToolHandler } from '../types.js';
 import { ValidationError } from '../../utils/errors.js';
+import { config } from '../../config/index.js';
 import Fuse from 'fuse.js';
 
 export class InventoryToolHandlers extends BaseToolHandler {
@@ -489,12 +490,45 @@ export class InventoryToolHandlers extends BaseToolHandler {
           ? locations.filter((l: any) => referencedLocationIds.has(Number(l.id)))
           : locations;
 
+      let enabledTools = new Set<string>();
+      try {
+        enabledTools = config.parseToolConfiguration().enabledTools;
+      } catch {
+        // Fallback when configuration is unavailable
+      }
+
+      const candidateOpTools = [
+        'inventory_transactions_consume',
+        'inventory_stock_entry_consume',
+        'inventory_stock_entry_transfer',
+        'inventory_stock_entry_open',
+        'inventory_transactions_purchase',
+        'inventory_transactions_adjust',
+        'inventory_transactions_transfer',
+        'inventory_transactions_open',
+      ];
+      const availableOpTools =
+        enabledTools.size > 0
+          ? candidateOpTools.filter((t) => enabledTools.has(t))
+          : [
+              'inventory_transactions_consume',
+              'inventory_stock_entry_consume',
+              'inventory_stock_entry_transfer',
+              'inventory_transactions_purchase',
+              'inventory_transactions_adjust',
+            ];
+
+      const opListSuffix = availableOpTools.length > 0 ? ` (${availableOpTools.join(', ')})` : '';
+      const locationLookupHint =
+        enabledTools.size === 0 || enabledTools.has('system_locations_get')
+          ? ' For other storage locations not in referencedLocations, call system_locations_get.'
+          : '';
+
       return this.createSuccess({
         message: `Found ${enrichedMatches.length} product matches for "${productName}" (ordered from most likely to least likely match)`,
         productMatches: enrichedMatches,
         referencedLocations: relevantLocations.map((l: any) => ({ id: l.id, name: l.name })),
-        instructions:
-          'Review the matches above. Use the exact productId, stockId, and locationId from this data for any product operations (inventory_transactions_consume, inventory_stock_entry_consume, inventory_stock_entry_transfer, inventory_transactions_purchase, inventory_transactions_adjust, etc.). For other storage locations not in referencedLocations, call system_locations_get.',
+        instructions: `Review the matches above. Use the exact productId, stockId, and locationId from this data for any product operations${opListSuffix}.${locationLookupHint}`,
       });
     });
   };

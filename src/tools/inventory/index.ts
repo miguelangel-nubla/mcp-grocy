@@ -1,11 +1,13 @@
 import { ToolModule } from '../types.js';
-import { inventoryToolDefinitions } from './definitions.js';
+import { getInventoryToolDefinitions } from './definitions.js';
 import { InventoryToolHandlers } from './handlers.js';
 
 const handlers = new InventoryToolHandlers();
 
 export const inventoryModule: ToolModule = {
-  definitions: inventoryToolDefinitions,
+  get definitions() {
+    return getInventoryToolDefinitions();
+  },
   handlers: {
     // Product Management
     inventory_products_get: handlers.getProducts,

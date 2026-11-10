@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { InventoryToolHandlers } from './handlers.js';
-import { inventoryToolDefinitions } from './definitions.js';
+import { inventoryToolDefinitions, getInventoryToolDefinitions } from './definitions.js';
+import { config } from '../../config/index.js';
 
 // Mock API client
 vi.mock('../../api/client.js', () => ({
@@ -616,6 +617,40 @@ describe('InventoryToolHandlers', () => {
       expect(data.referencedLocations).toContainEqual({ id: 2, name: 'Nevera' });
     });
 
+    it('should omit disabled tools from lookupProduct instructions', async () => {
+      const parseSpy = vi.spyOn(config, 'parseToolConfiguration').mockReturnValue({
+        enabledTools: new Set([
+          'inventory_products_lookup',
+          'inventory_stock_entry_consume',
+          'inventory_stock_entry_transfer',
+          'inventory_stock_entry_open',
+          'inventory_transactions_purchase',
+          'system_locations_get',
+        ]),
+        toolSubConfigs: new Map(),
+      });
+
+      mockApiClient.request.mockImplementation(async (endpoint: string) => {
+        if (endpoint === '/objects/products')
+          return { data: [{ id: 81, name: 'Mango', qu_id_stock: 2 }], status: 200, headers: {} };
+        if (endpoint === '/objects/locations')
+          return { data: [{ id: 2, name: 'Nevera' }], status: 200, headers: {} };
+        if (endpoint === '/objects/quantity_units')
+          return { data: [{ id: 2, name: 'Unidad' }], status: 200, headers: {} };
+        return { data: [], status: 200, headers: {} };
+      });
+
+      const result = await handlers.lookupProduct({ productName: 'mango' });
+      const data = (result.structuredContent as any).data;
+
+      expect(data.instructions).toContain('inventory_stock_entry_consume');
+      expect(data.instructions).toContain('inventory_transactions_purchase');
+      expect(data.instructions).not.toContain('inventory_transactions_consume');
+      expect(data.instructions).not.toContain('inventory_transactions_adjust');
+
+      parseSpy.mockRestore();
+    });
+
     it('should return error when no products found', async () => {
       mockApiClient.request
         .mockResolvedValueOnce({ data: [], status: 200, headers: {} })
@@ -1074,5 +1109,37 @@ describe('inventory tool definitions', () => {
     expect(fields).toEqual(expect.arrayContaining(['calories', 'qu_id_consume', 'due_type']));
     const description: string = props('inventory_products_get').fields.description;
     for (const f of fields) expect(description).toContain(f);
+  });
+
+  it('omits disabled tools from enabled tool descriptions and parameter hints', () => {
+    const enabled = new Set([
+      'inventory_products_lookup',
+      'inventory_products_get_groups',
+      'inventory_products_get_price_history',
+      'inventory_stock_get_all',
+      'inventory_stock_get_by_product',
+      'inventory_stock_get_by_location',
+      'inventory_transactions_purchase',
+      'inventory_stock_entry_consume',
+      'inventory_stock_entry_transfer',
+      'inventory_stock_entry_open',
+      'system_locations_get',
+    ]);
+    const disabled = [
+      'inventory_products_get',
+      'inventory_transactions_consume',
+      'inventory_transactions_adjust',
+      'inventory_transactions_transfer',
+      'inventory_transactions_open',
+    ];
+
+    const defs = getInventoryToolDefinitions(enabled).filter((d) => enabled.has(d.name));
+
+    for (const def of defs) {
+      const textToCheck = `${def.description} ${JSON.stringify(def.inputSchema)}`;
+      for (const disabledTool of disabled) {
+        expect(textToCheck).not.toMatch(new RegExp(`\\b${disabledTool}\\b`));
+      }
+    }
   });
 });
