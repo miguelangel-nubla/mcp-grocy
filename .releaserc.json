@@ -12,14 +12,14 @@
     [
       "@semantic-release/npm",
       {
-        "npmPublish": false,
+        "npmPublish": true,
         "pkgRoot": "."
       }
     ],
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "echo \"Running scripts/build.js to update generated version files...\" && node scripts/build.js && npx tsc && echo \"Staging changed files...\" && git add CHANGELOG.md && git add -f src/version.ts build/version.js"
+        "prepareCmd": "echo \"Running scripts/build.js to update generated version files...\" && npx prettier --write CHANGELOG.md && node scripts/build.js && npx tsc && echo \"Staging changed files...\" && git add CHANGELOG.md && git add -f src/version.ts build/version.js"
       }
     ],
     [

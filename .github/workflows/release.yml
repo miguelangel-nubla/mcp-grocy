@@ -104,6 +104,7 @@ jobs:
       contents: write # For semantic-release to create tags and releases
       pull-requests: write # For creating PRs and commenting on them
       issues: write # For creating issues and commenting on them
+      id-token: write # For npm Trusted Publishing (OIDC) and provenance
     outputs:
       new_release_published: ${{ steps.semantic-release.outputs.new_release_published }}
       new_release_version: ${{ steps.semantic-release.outputs.new_release_version }}
@@ -120,7 +121,6 @@ jobs:
         id: semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           HUSKY: '0'
         run: |
           npx semantic-release --debug
