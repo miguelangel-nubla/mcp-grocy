@@ -9,7 +9,7 @@
     "access": "public"
   },
   "bin": {
-    "mcp-grocy": "./build/main.js"
+    "mcp-grocy": "build/main.js"
   },
   "files": [
     "build",

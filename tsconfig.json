@@ -19,5 +19,5 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "build", "tests", "src/tools/*/handlers.test.ts"]
+  "exclude": ["node_modules", "build", "tests", "src/**/*.test.ts"]
 }
