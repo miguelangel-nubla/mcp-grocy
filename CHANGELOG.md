@@ -1,3 +1,9 @@
+## [2.9.2](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.9.1...v2.9.2) (2026-11-10)
+
+### Bug Fixes
+
+- **inventory:** prioritize multi-word matches in product lookup ([d592cff](https://github.com/miguelangel-nubla/mcp-grocy/commit/d592cff23d2027e22e2ab22bafee136348430d6b))
+
 ## [2.9.1](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.9.0...v2.9.1) (2026-11-10)
 
 ### Bug Fixes
