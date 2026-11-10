@@ -1,3 +1,40 @@
+# [2.9.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.8.0...v2.9.0) (2026-11-10)
+
+
+### Bug Fixes
+
+* **api:** surface Grocy error_message and keep the API key out of logs ([2b23451](https://github.com/miguelangel-nubla/mcp-grocy/commit/2b234511356162bd4e6f48c4e589c9c67a5df0e8))
+* **docker:** install and build on the native build platform ([eb560e1](https://github.com/miguelangel-nubla/mcp-grocy/commit/eb560e1c112e5afbecbb8f97a98b79fdf91c0cff))
+* **household:** let Grocy default tracked times, drop ignored note params ([4e0d1aa](https://github.com/miguelangel-nubla/mcp-grocy/commit/4e0d1aac244dfae1db6cb3db3754999b8f78182c))
+* **household:** validate tracked and done times before sending them to Grocy ([39d8de9](https://github.com/miguelangel-nubla/mcp-grocy/commit/39d8de9884742792bcdb79629c00e7452fef9975))
+* **inventory:** drop note params Grocy never stores, offer only real product fields ([977caab](https://github.com/miguelangel-nubla/mcp-grocy/commit/977caab603253e105179ae3a68df8194012e61ce))
+* **inventory:** rank whole-word product matches first in product lookup ([27e3bca](https://github.com/miguelangel-nubla/mcp-grocy/commit/27e3bca85c0af24ae3ea3446562d346f14f32f26))
+* **inventory:** record spoiled product consumes as consume transactions ([28d297e](https://github.com/miguelangel-nubla/mcp-grocy/commit/28d297e7f13643732423f15911cefa29bed81a9e))
+* **inventory:** use location entries endpoint, keep lot fields when splitting ([514c7f8](https://github.com/miguelangel-nubla/mcp-grocy/commit/514c7f8cddd6feaa6cfab9d95ebf9ab9f510a29d))
+* **recipes:** correct consume and shopping endpoints, servings and meal plan handling ([d1a8606](https://github.com/miguelangel-nubla/mcp-grocy/commit/d1a86060051f481f567e38b7dcfcc21bba9601e2))
+* **recipes:** keep only-check ingredient amounts in their own unit, weekly plan Mon-Sun ([eafa98d](https://github.com/miguelangel-nubla/mcp-grocy/commit/eafa98df4631d8908ccdee3ab1af8e0e1f64bbb2))
+* **recipes:** recipes_management_create no longer sends an instructions column ([250ba7e](https://github.com/miguelangel-nubla/mcp-grocy/commit/250ba7e7f432921d80f4de0886214b454e2deeda))
+* **server:** free closed HTTP sessions, gate cross-site origins, validate env overrides ([3207ebb](https://github.com/miguelangel-nubla/mcp-grocy/commit/3207ebb6ee503cc94462acbfff4d1d73e27ebbb5))
+* **shopping:** enforce valid positive productId and product existence in shopping_list_add_item ([bf7083c](https://github.com/miguelangel-nubla/mcp-grocy/commit/bf7083ce254265da9c40a6d4cf88e5f61126b8a8))
+* **shopping:** send only changed columns in shopping_list_update ([b4627ce](https://github.com/miguelangel-nubla/mcp-grocy/commit/b4627ce88269b759e166286ad7f1bc5bca9bb0f2))
+* **shopping:** thermal print list param, validated product changes on update ([f860bcb](https://github.com/miguelangel-nubla/mcp-grocy/commit/f860bcbb431ea3272ee9106ccd8ed7b742baacdf))
+* **system:** raw API tools off unless GROCY_ENABLE_DEV_TOOLS=true and refuse unit-unsafe writes ([c1723b4](https://github.com/miguelangel-nubla/mcp-grocy/commit/c1723b4086f5f27d118622d0b081faaecf513050))
+* **system:** resolve encoded and dot-segment paths in the raw write guard ([9257650](https://github.com/miguelangel-nubla/mcp-grocy/commit/925765075bdeacff0514ae9190d08f5caa5c1f32))
+
+
+### Features
+
+* **config:** read GROCY_API_KEY and MCP_HTTP_ACCESS_TOKEN from <NAME>_FILE ([0a193f7](https://github.com/miguelangel-nubla/mcp-grocy/commit/0a193f7dc77e82a10efdaab690029dbefe815aa4))
+* **inventory:** improve lookup typo ranking and enrich location stock responses ([af9e818](https://github.com/miguelangel-nubla/mcp-grocy/commit/af9e81850713f88caa09e297389a88be039f5ada))
+* **inventory:** omit disabled tools from lookup instructions and tool descriptions ([7306940](https://github.com/miguelangel-nubla/mcp-grocy/commit/7306940a692331107471732bce3bb96020207222))
+* **recipes:** recipes_ingredients_get/add/update/delete convert amounts to the stock unit ([2bd1754](https://github.com/miguelangel-nubla/mcp-grocy/commit/2bd1754e83402a6cb4fd00e2955887c9d5894879))
+* **shopping:** add allow_note_only option to shopping_list_add_item ([c759b47](https://github.com/miguelangel-nubla/mcp-grocy/commit/c759b47f89ed3d270972c137af1b373850effdbe))
+
+
+### Performance Improvements
+
+* **inventory:** return compact summaries from consume tools ([c332cd0](https://github.com/miguelangel-nubla/mcp-grocy/commit/c332cd057a4e7499ecfbc96339600475c6916145))
+
 # [2.8.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.7.2...v2.8.0) (2026-09-25)
 
 ### Bug Fixes
