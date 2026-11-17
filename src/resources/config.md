@@ -27,12 +27,17 @@ error.
 
 Enable HTTP/SSE transport for web-based access:
 
-| Variable                        | Description                                          | Default  | Example  |
-| ------------------------------- | ---------------------------------------------------- | -------- | -------- |
-| `ENABLE_HTTP_SERVER`            | Enable HTTP/SSE transport                            | `false`  | `true`   |
-| `HTTP_SERVER_PORT`              | HTTP server port                                     | `8080`   | `3000`   |
-| `MCP_SESSION_IDLE_TIMEOUT_MS`   | Reap an idle MCP session after this many ms          | `300000` | `600000` |
-| `MCP_SESSION_SWEEP_INTERVAL_MS` | How often, in ms, to sweep for idle sessions to reap | `60000`  | `30000`  |
+| Variable                        | Description                                          | Default      | Example                       |
+| ------------------------------- | ---------------------------------------------------- | ------------ | ----------------------------- |
+| `ENABLE_HTTP_SERVER`            | Enable HTTP/SSE transport                            | `false`      | `true`                        |
+| `HTTP_SERVER_PORT`              | HTTP server port                                     | `8080`       | `3000`                        |
+| `MCP_SESSION_IDLE_TIMEOUT_MS`   | Reap an idle MCP session after this many ms          | `300000`     | `600000`                      |
+| `MCP_SESSION_SWEEP_INTERVAL_MS` | How often, in ms, to sweep for idle sessions to reap | `60000`      | `30000`                       |
+| `MCP_HTTP_ACCESS_TOKEN`         | Static token required on the MCP routes              | -            | -                             |
+| `MCP_OAUTH_ISSUER`              | OIDC issuer whose JWT access tokens are accepted     | -            | `https://id.example.com`      |
+| `MCP_OAUTH_RESOURCE_URL`        | Public URL of `/mcp` (required with the issuer)      | -            | `https://mcp.example.com/mcp` |
+| `MCP_OAUTH_REQUIRED_SCOPES`     | Scopes every token must carry                        | -            | `mcp`                         |
+| `MCP_OAUTH_AUDIENCE`            | Expected `aud` claim                                 | resource URL | -                             |
 
 | `SERIALIZE_STRUCTURED_TO_CONTENT` | Also serialize structured JSON into content text blocks | `false` | `true` |
 

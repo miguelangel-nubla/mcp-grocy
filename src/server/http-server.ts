@@ -8,14 +8,22 @@ import { VERSION, PACKAGE_NAME as SERVER_NAME } from '../version.js';
 import cors from 'cors';
 import http from 'http';
 import { BlockList, isIP } from 'net';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import {
+  getOAuthProtectedResourceMetadataUrl,
+  mcpAuthMetadataRouter,
+} from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { logger } from '../utils/logger.js';
-import type { Request, Response, NextFunction } from 'express';
+import type { HttpOAuthOptions } from './oauth.js';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 export interface HttpServerSecurityOptions {
   /** CORS `Access-Control-Allow-Origin` (`*` or a single origin, e.g. `http://localhost:3000`) */
   corsOrigin: string;
   /** When set, MCP routes require this token via Bearer, `X-MCP-Access-Token`, or `access_token` query (GET only). */
   accessToken?: string;
+  /** When set, MCP routes accept OAuth access tokens from this issuer (alongside `accessToken`, if any). */
+  oauth?: HttpOAuthOptions;
 }
 
 export interface McpSessionOptions {
@@ -41,9 +49,34 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
-function createMcpAccessGate(accessToken: string | undefined) {
+/**
+ * Whether the request carries the static access token: `Authorization: Bearer`,
+ * `X-MCP-Access-Token`, or (GET only, when `allowQuery`) the `access_token` query parameter.
+ */
+function hasAccessToken(req: Request, accessToken: string, allowQuery: boolean): boolean {
+  const bearer = req.headers.authorization;
+  const headerToken = req.headers['x-mcp-access-token'];
+  const headerTokenStr = Array.isArray(headerToken) ? headerToken[0] : headerToken;
+  const q = req.query.access_token;
+  const queryToken = typeof q === 'string' ? q : undefined;
+  return (
+    (typeof bearer === 'string' && safeEqual(bearer, `Bearer ${accessToken}`)) ||
+    (typeof headerTokenStr === 'string' && safeEqual(headerTokenStr, accessToken)) ||
+    (allowQuery &&
+      req.method === 'GET' &&
+      typeof queryToken === 'string' &&
+      safeEqual(queryToken, accessToken))
+  );
+}
+
+/**
+ * Gate for MCP routes. The static token, when configured, always works; otherwise an OAuth
+ * gate (when configured) gets the request and answers 401/403 with a `WWW-Authenticate`
+ * challenge pointing clients at the protected-resource metadata.
+ */
+function createMcpAccessGate(accessToken: string | undefined, oauthGate?: RequestHandler) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!accessToken) {
+    if (!accessToken && !oauthGate) {
       next();
       return;
     }
@@ -51,19 +84,12 @@ function createMcpAccessGate(accessToken: string | undefined) {
       next();
       return;
     }
-    const bearer = req.headers.authorization;
-    const headerToken = req.headers['x-mcp-access-token'];
-    const headerTokenStr = Array.isArray(headerToken) ? headerToken[0] : headerToken;
-    const q = req.query.access_token;
-    const queryToken = typeof q === 'string' ? q : undefined;
-    const ok =
-      (typeof bearer === 'string' && safeEqual(bearer, `Bearer ${accessToken}`)) ||
-      (typeof headerTokenStr === 'string' && safeEqual(headerTokenStr, accessToken)) ||
-      (req.method === 'GET' &&
-        typeof queryToken === 'string' &&
-        safeEqual(queryToken, accessToken));
-    if (ok) {
+    if (accessToken && hasAccessToken(req, accessToken, true)) {
       next();
+      return;
+    }
+    if (oauthGate) {
+      void oauthGate(req, res, next);
       return;
     }
     res.status(401).json({
@@ -118,7 +144,7 @@ function isLocalOrIpHostname(hostname: string): boolean {
 
 /**
  * Origin validation (MCP Streamable HTTP spec; blocks cross-site pages and DNS rebinding).
- * Skipped when an access token is configured, since a browser page cannot supply it.
+ * Skipped when an access token or OAuth is configured, since a hostile page cannot supply a credential.
  * Requests without an Origin header (non-browser clients) always pass. A browser Origin is
  * accepted when it matches a configured (non-`*`) CORS origin, or when its hostname is
  * localhost or a loopback/private-network IP literal; anything else gets 403.
@@ -128,7 +154,7 @@ function createOriginGate(security: HttpServerSecurityOptions) {
     security.corsOrigin !== '*' ? normalizeOrigin(security.corsOrigin) : undefined;
   return (req: Request, res: Response, next: NextFunction): void => {
     const origin = req.headers.origin;
-    if (security.accessToken || typeof origin !== 'string') {
+    if (security.accessToken || security.oauth || typeof origin !== 'string') {
       next();
       return;
     }
@@ -168,14 +194,31 @@ export function startHttpServer(
 ): Promise<http.Server> {
   return new Promise((resolve, reject) => {
     const app = express();
-    const mcpAccessGate = createMcpAccessGate(security.accessToken);
+    const { oauth } = security;
+    const resourceMetadataUrl = oauth
+      ? getOAuthProtectedResourceMetadataUrl(oauth.resourceUrl)
+      : undefined;
+    const oauthGate = oauth
+      ? requireBearerAuth({
+          verifier: oauth.verifier,
+          requiredScopes: oauth.requiredScopes,
+          ...(resourceMetadataUrl !== undefined && { resourceMetadataUrl }),
+        })
+      : undefined;
+    const mcpAccessGate = createMcpAccessGate(security.accessToken, oauthGate);
     const originGate = createOriginGate(security);
 
     if (security.accessToken) {
       logger.config(
         'HTTP MCP access token is enabled (Bearer, X-MCP-Access-Token, or access_token on GET)',
       );
-    } else {
+    }
+    if (oauth) {
+      logger.config(
+        `HTTP MCP OAuth is enabled: issuer ${oauth.oauthMetadata.issuer}, resource ${oauth.resourceUrl.href}, metadata ${resourceMetadataUrl}`,
+      );
+    }
+    if (!security.accessToken && !oauth) {
       logger.warn(
         'HTTP MCP server has no access token: anyone who can reach the port can call Grocy tools. Browser requests are limited to localhost/private-IP Origins (or HTTP_CORS_ORIGIN). Set MCP_HTTP_ACCESS_TOKEN when exposing the port.',
         'server',
@@ -197,10 +240,23 @@ export function startHttpServer(
           'Authorization',
           'X-MCP-Access-Token',
         ],
-        exposedHeaders: ['Mcp-Session-Id', 'Content-Type'],
+        exposedHeaders: ['Mcp-Session-Id', 'Content-Type', 'WWW-Authenticate'],
         optionsSuccessStatus: 200,
       }),
     );
+
+    // OAuth discovery: RFC 9728 protected-resource metadata (path-suffixed, e.g.
+    // /.well-known/oauth-protected-resource/mcp) plus a mirror of the issuer's metadata.
+    if (oauth) {
+      app.use(
+        mcpAuthMetadataRouter({
+          oauthMetadata: oauth.oauthMetadata,
+          resourceServerUrl: oauth.resourceUrl,
+          resourceName: SERVER_NAME,
+          ...(oauth.requiredScopes.length > 0 && { scopesSupported: oauth.requiredScopes }),
+        }),
+      );
+    }
 
     // Enable JSON body parsing with increased limit
     app.use(
@@ -209,18 +265,24 @@ export function startHttpServer(
       }),
     );
 
+    const isAuthenticated = async (req: Request): Promise<boolean> => {
+      if (security.accessToken && hasAccessToken(req, security.accessToken, false)) return true;
+      const bearer = req.headers.authorization;
+      if (!oauth || typeof bearer !== 'string' || !bearer.startsWith('Bearer ')) return false;
+      try {
+        await oauth.verifier.verifyAccessToken(bearer.slice('Bearer '.length));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     // Health check endpoint — always accessible for monitoring/load balancers,
-    // but only exposes service details when no access token is configured or request is authenticated.
-    app.get('/', (req, res) => {
+    // but only exposes service details when no access control is configured or request is authenticated.
+    app.get('/', async (req, res) => {
       const minimal = { status: 'ok' as const };
-      if (security.accessToken) {
-        const bearer = req.headers.authorization;
-        const headerToken = req.headers['x-mcp-access-token'];
-        const headerTokenStr = Array.isArray(headerToken) ? headerToken[0] : headerToken;
-        const authenticated =
-          (typeof bearer === 'string' && safeEqual(bearer, `Bearer ${security.accessToken}`)) ||
-          (typeof headerTokenStr === 'string' && safeEqual(headerTokenStr, security.accessToken));
-        if (!authenticated) {
+      if (security.accessToken || oauth) {
+        if (!(await isAuthenticated(req))) {
           res.json(minimal);
           return;
         }

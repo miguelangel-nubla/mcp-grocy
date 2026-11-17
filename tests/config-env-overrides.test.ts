@@ -512,5 +512,36 @@ tools:
       expect(() => attemptConfigCreation()).toThrow('process.exit called');
       expect(processExitSpy).toHaveBeenCalledWith(1);
     });
+
+    it('should build server.oauth from MCP_OAUTH_* variables', () => {
+      setupEnvironment({
+        MCP_OAUTH_ISSUER: 'https://id.example.com',
+        MCP_OAUTH_RESOURCE_URL: 'https://grocy-mcp.example.com/mcp',
+        MCP_OAUTH_REQUIRED_SCOPES: 'mcp, grocy:write',
+      });
+
+      const config = new (ConfigManager as any)(tempConfigPath);
+
+      expect(config.server.oauth).toEqual({
+        issuer: 'https://id.example.com',
+        resource_url: 'https://grocy-mcp.example.com/mcp',
+        required_scopes: ['mcp', 'grocy:write'],
+      });
+    });
+
+    it('should leave OAuth off when no MCP_OAUTH_* variable is set', () => {
+      setupEnvironment();
+
+      const config = new (ConfigManager as any)(tempConfigPath);
+
+      expect(config.server.oauth).toBeUndefined();
+    });
+
+    it('should exit with code 1 when MCP_OAUTH_ISSUER is set without MCP_OAUTH_RESOURCE_URL', () => {
+      setupEnvironment({ MCP_OAUTH_ISSUER: 'https://id.example.com' });
+
+      expect(() => attemptConfigCreation()).toThrow('process.exit called');
+      expect(processExitSpy).toHaveBeenCalledWith(1);
+    });
   });
 });

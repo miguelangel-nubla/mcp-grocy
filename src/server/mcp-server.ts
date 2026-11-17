@@ -17,6 +17,7 @@ import { createToolRegistry } from '../tools/index.js';
 import type { ToolRegistry } from '../tools/types.js';
 import { config } from '../config/index.js';
 import { startHttpServer } from './http-server.js';
+import { prepareHttpOAuth } from './oauth.js';
 import { ResourceHandler, STATIC_MCP_RESOURCE_ENTRIES } from './resources.js';
 import { toolDefinitionInputZod } from './tool-input-zod.js';
 import { logger } from '../utils/logger.js';
@@ -304,6 +305,7 @@ export class GrocyMcpServer {
       try {
         logger.config(`Starting HTTP server on port ${config.server.http_server_port}`);
         const serverFactory = () => this.createMcpServer();
+        const oauth = config.server.oauth ? await prepareHttpOAuth(config.server.oauth) : undefined;
         await startHttpServer(
           serverFactory,
           config.server.http_server_port,
@@ -312,6 +314,7 @@ export class GrocyMcpServer {
             ...(config.server.http_access_token !== undefined && {
               accessToken: config.server.http_access_token,
             }),
+            ...(oauth !== undefined && { oauth }),
           },
           {
             idleTimeoutMs: config.server.session_idle_timeout_ms,
@@ -319,7 +322,8 @@ export class GrocyMcpServer {
           },
         );
       } catch (error) {
-        logger.error('Failed to start HTTP server', 'SERVER', { error });
+        const reason = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to start HTTP server: ${reason}`, 'SERVER');
         logger.error('HTTP server is explicitly enabled but cannot start - exiting', 'SERVER');
         process.exit(1);
       }

@@ -225,6 +225,27 @@ npm start
 # Access via http://localhost:8080/mcp
 ```
 
+#### OAuth (remote connectors such as ChatGPT or Claude)
+
+Remote MCP clients log in with OAuth. The server acts as an OAuth resource server: an OIDC
+provider you already run (e.g. Pocket ID, Keycloak, Authentik) issues the tokens,
+and the server checks them (JWT signature against the issuer's JWKS, `iss`, `aud`,
+`exp`, optional scopes). It publishes the RFC 9728 metadata at
+`/.well-known/oauth-protected-resource/mcp` and answers unauthenticated calls with `401` plus a
+`WWW-Authenticate` header pointing there, which is how clients find the login page.
+
+```bash
+MCP_OAUTH_ISSUER=https://id.example.com                     # tokens' `iss`; discovery is fetched at startup
+MCP_OAUTH_RESOURCE_URL=https://grocy-mcp.example.com/mcp    # public URL of /mcp, as entered in the client
+MCP_OAUTH_REQUIRED_SCOPES=                                  # optional, space or comma separated
+MCP_OAUTH_AUDIENCE=                                         # optional, defaults to MCP_OAUTH_RESOURCE_URL
+```
+
+The YAML equivalent is `server.oauth` (`issuer`, `resource_url`, `required_scopes`, `audience`).
+`MCP_HTTP_ACCESS_TOKEN` keeps working alongside OAuth, e.g. for a local client. Serve the
+server over HTTPS behind a reverse proxy, and pass `/.well-known/oauth-protected-resource/mcp`
+through to it.
+
 ## 📚 Documentation & Resources
 
 | Resource                                                              | Purpose                            | When to Use                              |
