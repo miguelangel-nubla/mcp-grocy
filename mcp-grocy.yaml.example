@@ -13,6 +13,15 @@ server:
   # Without a token, browser requests (those with an Origin header) are only accepted from
   # localhost/private-network IP origins or the http_cors_origin above; non-browser clients are unaffected.
   # http_access_token: "your-secret-token"
+  # Optional: accept OAuth access tokens (JWTs) from an OIDC provider, for remote connectors
+  # (ChatGPT, Claude). Env: MCP_OAUTH_ISSUER, MCP_OAUTH_RESOURCE_URL, MCP_OAUTH_REQUIRED_SCOPES, MCP_OAUTH_AUDIENCE,
+  # MCP_OAUTH_ALLOWED_SUBJECTS
+  # oauth:
+  #   issuer: https://id.example.com                     # tokens' iss; discovery fetched at startup
+  #   resource_url: https://grocy-mcp.example.com/mcp    # public URL of /mcp, as clients have it
+  #   required_scopes: []
+  #   audience: https://grocy-mcp.example.com/mcp        # default: resource_url
+  #   allowed_subjects: []                               # only these `sub` claims; empty: any account
   # Reap an idle MCP session after this many ms with no requests (default 300000 = 5 min).
   # Prevents per-reconnect memory growth when clients don't send DELETE /mcp.
   # session_idle_timeout_ms: 300000
