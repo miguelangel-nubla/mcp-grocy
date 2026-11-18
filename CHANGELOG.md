@@ -1,3 +1,13 @@
+# [2.10.0](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.9.2...v2.10.0) (2026-11-18)
+
+### Bug Fixes
+
+- **http:** harden OAuth token verification from review ([faf7597](https://github.com/miguelangel-nubla/mcp-grocy/commit/faf75974b32b6248ae7640632bd45724b2cb58b3))
+
+### Features
+
+- **http:** accept OAuth access tokens from an OIDC issuer ([573e6bd](https://github.com/miguelangel-nubla/mcp-grocy/commit/573e6bdafe52320de81711ec8352086047f7eba8))
+
 ## [2.9.2](https://github.com/miguelangel-nubla/mcp-grocy/compare/v2.9.1...v2.9.2) (2026-11-10)
 
 ### Bug Fixes
