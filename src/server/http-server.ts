@@ -270,8 +270,11 @@ export function startHttpServer(
       const bearer = req.headers.authorization;
       if (!oauth || typeof bearer !== 'string' || !bearer.startsWith('Bearer ')) return false;
       try {
-        await oauth.verifier.verifyAccessToken(bearer.slice('Bearer '.length));
-        return true;
+        // Same acceptance rules as requireBearerAuth on the MCP routes: scopes and expiry too.
+        const info = await oauth.verifier.verifyAccessToken(bearer.slice('Bearer '.length));
+        const scopes = new Set(info.scopes);
+        if (!oauth.requiredScopes.every((scope) => scopes.has(scope))) return false;
+        return info.expiresAt === undefined || info.expiresAt >= Date.now() / 1000;
       } catch {
         return false;
       }

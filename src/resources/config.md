@@ -38,6 +38,7 @@ Enable HTTP/SSE transport for web-based access:
 | `MCP_OAUTH_RESOURCE_URL`        | Public URL of `/mcp` (required with the issuer)      | -            | `https://mcp.example.com/mcp` |
 | `MCP_OAUTH_REQUIRED_SCOPES`     | Scopes every token must carry                        | -            | `mcp`                         |
 | `MCP_OAUTH_AUDIENCE`            | Expected `aud` claim                                 | resource URL | -                             |
+| `MCP_OAUTH_ALLOWED_SUBJECTS`    | Only accept tokens whose `sub` is listed             | any          | `user-1`                      |
 
 | `SERIALIZE_STRUCTURED_TO_CONTENT` | Also serialize structured JSON into content text blocks | `false` | `true` |
 

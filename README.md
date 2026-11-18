@@ -239,9 +239,15 @@ MCP_OAUTH_ISSUER=https://id.example.com                     # tokens' `iss`; dis
 MCP_OAUTH_RESOURCE_URL=https://grocy-mcp.example.com/mcp    # public URL of /mcp, as entered in the client
 MCP_OAUTH_REQUIRED_SCOPES=                                  # optional, space or comma separated
 MCP_OAUTH_AUDIENCE=                                         # optional, defaults to MCP_OAUTH_RESOURCE_URL
+MCP_OAUTH_ALLOWED_SUBJECTS=                                 # optional `sub` allowlist, space or comma separated
 ```
 
-The YAML equivalent is `server.oauth` (`issuer`, `resource_url`, `required_scopes`, `audience`).
+Without `MCP_OAUTH_REQUIRED_SCOPES` or `MCP_OAUTH_ALLOWED_SUBJECTS`, every account the issuer can
+sign in gets full access; set one of them on a shared provider. Discovery is retried for about 30
+seconds at startup, so the provider may start after this server.
+
+The YAML equivalent is `server.oauth` (`issuer`, `resource_url`, `required_scopes`, `audience`,
+`allowed_subjects`).
 `MCP_HTTP_ACCESS_TOKEN` keeps working alongside OAuth, e.g. for a local client. Serve the
 server over HTTPS behind a reverse proxy, and pass `/.well-known/oauth-protected-resource/mcp`
 through to it.

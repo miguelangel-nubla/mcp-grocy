@@ -4,7 +4,11 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { CryptoKey, JWK } from 'jose';
 import { GrocyMcpServer } from '../src/server/mcp-server.js';
 import { startHttpServer } from '../src/server/http-server.js';
-import { fetchAuthorizationServerMetadata, prepareHttpOAuth } from '../src/server/oauth.js';
+import {
+  fetchAuthorizationServerMetadata,
+  fetchAuthorizationServerMetadataWithRetry,
+  prepareHttpOAuth,
+} from '../src/server/oauth.js';
 
 const STREAMABLE_ACCEPT = 'application/json, text/event-stream';
 const RESOURCE = 'https://grocy-mcp.example.com/mcp';
@@ -35,11 +39,20 @@ async function closeServer(s: http.Server): Promise<void> {
 async function startFakeIssuer(
   jwk: JWK,
   override: (issuer: string) => Record<string, unknown> = () => ({}),
+  behavior: { jwksStatus?: number; failDiscovery?: number } = {},
 ): Promise<{ server: http.Server; issuer: string }> {
   let issuer = '';
+  let discoveryFailures = behavior.failDiscovery ?? 0;
   const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    if (req.url === '/.well-known/openid-configuration') {
+    if (req.url === '/.well-known/openid-configuration' && discoveryFailures > 0) {
+      discoveryFailures--;
+      res.statusCode = 503;
+      res.end('{}');
+    } else if (req.url === '/.well-known/jwks.json' && behavior.jwksStatus !== undefined) {
+      res.statusCode = behavior.jwksStatus;
+      res.end('{}');
+    } else if (req.url === '/.well-known/openid-configuration') {
       res.end(
         JSON.stringify({
           issuer,
@@ -82,12 +95,24 @@ describe('HTTP OAuth (resource server)', () => {
       .sign(opts.key ?? privateKey);
   };
 
-  const start = async (extra: { accessToken?: string; required_scopes?: string[] } = {}) => {
-    const oauth = await prepareHttpOAuth({
-      issuer,
-      resource_url: RESOURCE,
-      required_scopes: extra.required_scopes ?? [],
-    });
+  const start = async (
+    extra: {
+      accessToken?: string;
+      required_scopes?: string[];
+      allowed_subjects?: string[];
+      resource_url?: string;
+      issuer?: string;
+    } = {},
+  ) => {
+    const oauth = await prepareHttpOAuth(
+      {
+        issuer: extra.issuer ?? issuer,
+        resource_url: extra.resource_url ?? RESOURCE,
+        required_scopes: extra.required_scopes ?? [],
+        allowed_subjects: extra.allowed_subjects,
+      },
+      { attempts: 1 },
+    );
     httpServer = await startHttpServer(() => grocy.createMcpServer(), 0, {
       corsOrigin: '*',
       oauth,
@@ -205,6 +230,70 @@ describe('HTTP OAuth (resource server)', () => {
       headers: { Authorization: `Bearer ${await sign()}` },
     });
     expect(await authed.json()).toHaveProperty('service');
+  });
+
+  it('hides health details from a token that lacks a required scope', async () => {
+    const base = await start({ required_scopes: ['grocy:write'] });
+    const res = await fetch(`${base}/`, { headers: { Authorization: `Bearer ${await sign()}` } });
+    expect(await res.json()).toEqual({ status: 'ok' });
+  });
+
+  it('matches aud exactly against a resource URL without a path', async () => {
+    const base = await start({ resource_url: 'https://grocy-mcp.example.com' });
+    const token = await sign({ aud: 'https://grocy-mcp.example.com' });
+    expect((await initialize(base, { Authorization: `Bearer ${token}` })).status).toBe(200);
+  });
+
+  it('accepts a token that expired within the clock tolerance', async () => {
+    const base = await start();
+    const token = await sign({ exp: Math.floor(Date.now() / 1000) - 10 });
+    expect((await initialize(base, { Authorization: `Bearer ${token}` })).status).toBe(200);
+  });
+
+  it('only accepts listed subjects when allowed_subjects is set', async () => {
+    expect(
+      (
+        await initialize(await start({ allowed_subjects: ['user-1'] }), {
+          Authorization: `Bearer ${await sign()}`,
+        })
+      ).status,
+    ).toBe(200);
+    await closeServer(httpServer!);
+    const res = await initialize(await start({ allowed_subjects: ['someone-else'] }), {
+      Authorization: `Bearer ${await sign()}`,
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('answers 500, not 401, when the JWKS endpoint returns an error status', async () => {
+    const pair = await generateKeyPair('RS256');
+    const broken = await startFakeIssuer(await exportJWK(pair.publicKey), undefined, {
+      jwksStatus: 503,
+    });
+    try {
+      const base = await start({ issuer: broken.issuer });
+      const token = await sign({ iss: broken.issuer }, { key: pair.privateKey });
+      const res = await initialize(base, { Authorization: `Bearer ${token}` });
+      expect(res.status).toBe(500);
+    } finally {
+      await closeServer(broken.server);
+    }
+  });
+
+  it('retries discovery while the issuer is unavailable', async () => {
+    const pair = await generateKeyPair('RS256');
+    const flaky = await startFakeIssuer(await exportJWK(pair.publicKey), undefined, {
+      failDiscovery: 2,
+    });
+    try {
+      const metadata = await fetchAuthorizationServerMetadataWithRetry(flaky.issuer, {
+        attempts: 3,
+        initialDelayMs: 1,
+      });
+      expect(metadata.issuer).toBe(flaky.issuer);
+    } finally {
+      await closeServer(flaky.server);
+    }
   });
 
   it('refuses issuer metadata that names a different issuer', async () => {

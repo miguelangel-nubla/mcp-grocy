@@ -26,6 +26,8 @@ export interface OAuthConfig {
   audience?: string | undefined;
   /** Scopes every token must carry. */
   required_scopes: string[];
+  /** When non-empty, only tokens whose `sub` is listed are accepted. */
+  allowed_subjects?: string[] | undefined;
 }
 
 /** What `startHttpServer` needs to gate MCP routes with OAuth. */
@@ -36,6 +38,18 @@ export interface HttpOAuthOptions {
   resourceUrl: URL;
   requiredScopes: string[];
 }
+
+/** Startup retries while the issuer is unreachable (e.g. starting in the same compose stack). */
+export interface DiscoveryRetryOptions {
+  attempts?: number;
+  initialDelayMs?: number;
+}
+
+const DEFAULT_DISCOVERY_ATTEMPTS = 6;
+const DEFAULT_DISCOVERY_INITIAL_DELAY_MS = 1_000;
+
+/** A discovery failure that retrying cannot fix (the issuer answered, but with the wrong document). */
+class DiscoveryConfigError extends Error {}
 
 // Asymmetric algorithms only: a public JWKS has no business holding an HMAC key, and pinning the
 // list keeps a token from choosing how it gets verified.
@@ -108,17 +122,40 @@ export async function fetchAuthorizationServerMetadata(
     }
     const metadata = parsed.data;
     if (stripTrailingSlash(metadata.issuer) !== stripTrailingSlash(issuer)) {
-      throw new Error(
+      throw new DiscoveryConfigError(
         `OAuth issuer mismatch: ${url} describes issuer ${metadata.issuer}, expected ${issuer}`,
       );
     }
     const jwksUri = (metadata as { jwks_uri?: unknown }).jwks_uri;
     if (typeof jwksUri !== 'string' || jwksUri === '') {
-      throw new Error(`OAuth issuer metadata at ${url} has no jwks_uri`);
+      throw new DiscoveryConfigError(`OAuth issuer metadata at ${url} has no jwks_uri`);
     }
     return { ...metadata, jwks_uri: jwksUri };
   }
   throw new Error(`Could not load OAuth metadata for issuer ${issuer}: ${failures.join('; ')}`);
+}
+
+/** `fetchAuthorizationServerMetadata`, retried with exponential backoff while the issuer is unreachable. */
+export async function fetchAuthorizationServerMetadataWithRetry(
+  issuer: string,
+  retry: DiscoveryRetryOptions = {},
+): Promise<OAuthMetadata & { jwks_uri: string }> {
+  const attempts = Math.max(1, retry.attempts ?? DEFAULT_DISCOVERY_ATTEMPTS);
+  let delay = retry.initialDelayMs ?? DEFAULT_DISCOVERY_INITIAL_DELAY_MS;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetchAuthorizationServerMetadata(issuer);
+    } catch (error) {
+      if (error instanceof DiscoveryConfigError || attempt >= attempts) throw error;
+      logger.warn(
+        `OAuth issuer discovery failed (attempt ${attempt}/${attempts}), retrying in ${delay} ms`,
+        'server',
+        { error },
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      delay *= 2;
+    }
+  }
 }
 
 function tokenScopes(payload: JWTPayload): string[] {
@@ -147,11 +184,16 @@ export function createJwtVerifier(options: {
   audience: string;
   jwksUri: string;
   resourceUrl: URL;
+  allowedSubjects?: string[] | undefined;
 }): OAuthTokenVerifier {
   // Keys are cached and refetched only when an unknown `kid` shows up, so key rotation needs
   // no restart.
   const jwks = createRemoteJWKSet(new URL(options.jwksUri));
   const expected = { iss: options.issuer, aud: options.audience };
+  const allowedSubjects =
+    options.allowedSubjects && options.allowedSubjects.length > 0
+      ? new Set(options.allowedSubjects)
+      : undefined;
 
   return {
     async verifyAccessToken(token: string): Promise<AuthInfo> {
@@ -166,11 +208,14 @@ export function createJwtVerifier(options: {
         }));
       } catch (error) {
         // An unreachable or broken JWKS is our problem, not the token's: answer 500, not 401,
-        // so clients don't loop through re-authorization.
+        // so clients don't loop through re-authorization. jose reports a non-200 or unparsable
+        // JWKS response as a plain JOSEError (ERR_JOSE_GENERIC); every token problem has its
+        // own subclass.
         if (
           error instanceof joseErrors.JWKSTimeout ||
           error instanceof joseErrors.JWKSInvalid ||
-          !(error instanceof joseErrors.JOSEError)
+          !(error instanceof joseErrors.JOSEError) ||
+          error.code === joseErrors.JOSEError.code
         ) {
           logger.error('OAuth token verification failed: JWKS unavailable', 'server', { error });
           throw new ServerError('Token verification unavailable');
@@ -179,12 +224,19 @@ export function createJwtVerifier(options: {
         throw new InvalidTokenError('Invalid or expired access token');
       }
 
+      if (allowedSubjects && !allowedSubjects.has(payload.sub ?? '')) {
+        logRejectedToken('subject not in allowed_subjects', token, expected);
+        throw new InvalidTokenError('Token subject is not allowed');
+      }
+
       const clientId = payload.client_id ?? payload.azp;
       return {
         token,
         clientId: typeof clientId === 'string' ? clientId : (payload.sub ?? ''),
         scopes: tokenScopes(payload),
-        ...(payload.exp !== undefined && { expiresAt: payload.exp }),
+        // requireBearerAuth rejects `expiresAt < now` with no skew allowance; shift it by the
+        // same tolerance jose applied so both checks agree.
+        ...(payload.exp !== undefined && { expiresAt: payload.exp + CLOCK_TOLERANCE_SECONDS }),
         resource: options.resourceUrl,
         extra: { sub: payload.sub },
       };
@@ -193,14 +245,20 @@ export function createJwtVerifier(options: {
 }
 
 /** Load the issuer's metadata and build everything the HTTP server needs. */
-export async function prepareHttpOAuth(config: OAuthConfig): Promise<HttpOAuthOptions> {
+export async function prepareHttpOAuth(
+  config: OAuthConfig,
+  retry?: DiscoveryRetryOptions,
+): Promise<HttpOAuthOptions> {
   const resourceUrl = new URL(config.resource_url);
-  const metadata = await fetchAuthorizationServerMetadata(config.issuer);
+  const metadata = await fetchAuthorizationServerMetadataWithRetry(config.issuer, retry);
   const verifier = createJwtVerifier({
     issuer: metadata.issuer,
-    audience: config.audience ?? resourceUrl.href,
+    // The configured string as written: `new URL().href` adds a `/` to a path-less URL, and
+    // `aud` is compared exactly against what the client sent as `resource`.
+    audience: config.audience ?? config.resource_url,
     jwksUri: metadata.jwks_uri,
     resourceUrl,
+    allowedSubjects: config.allowed_subjects,
   });
   return {
     verifier,

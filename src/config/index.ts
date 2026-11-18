@@ -71,6 +71,7 @@ const EnvironmentSchema = z.object({
   MCP_OAUTH_RESOURCE_URL: z.string().optional(),
   MCP_OAUTH_AUDIENCE: z.string().optional(),
   MCP_OAUTH_REQUIRED_SCOPES: z.string().optional(),
+  MCP_OAUTH_ALLOWED_SUBJECTS: z.string().optional(),
   MCP_SESSION_IDLE_TIMEOUT_MS: z.string().regex(/^\d+$/).optional(),
   MCP_SESSION_SWEEP_INTERVAL_MS: z.string().regex(/^\d+$/).optional(),
   SERIALIZE_STRUCTURED_TO_CONTENT: z.enum(['true', 'false']).optional(),
@@ -111,6 +112,8 @@ const YamlConfigSchema = z
             audience: z.string().min(1).optional(),
             /** Scopes every token must carry. */
             required_scopes: z.array(z.string().min(1)).default([]),
+            /** When non-empty, only tokens whose `sub` claim is listed are accepted. */
+            allowed_subjects: z.array(z.string().min(1)).optional(),
           })
           .strict()
           .optional(),
@@ -398,9 +401,11 @@ export class ConfigManager {
       resource_url: env.MCP_OAUTH_RESOURCE_URL,
       audience: env.MCP_OAUTH_AUDIENCE,
       required_scopes: env.MCP_OAUTH_REQUIRED_SCOPES?.split(/[\s,]+/).filter(Boolean),
+      allowed_subjects: env.MCP_OAUTH_ALLOWED_SUBJECTS?.split(/[\s,]+/).filter(Boolean),
     };
     for (const [key, value] of Object.entries(oauthEnv)) {
-      if (value === undefined || value === '') continue;
+      // Empty strings and empty lists (e.g. compose's `${VAR:-}`) count as unset.
+      if (value === undefined || value.length === 0) continue;
       // Any MCP_OAUTH_* variable creates the section; schema validation then demands issuer + resource_url.
       yaml.server.oauth = { ...yaml.server.oauth, [key]: value } as typeof yaml.server.oauth;
     }

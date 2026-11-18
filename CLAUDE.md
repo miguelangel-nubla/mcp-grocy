@@ -166,7 +166,7 @@ tools:
 - `LOG_CATEGORIES` - Comma-separated category filter
 - `NODE_ENV` - Environment mode (development, production, test)
 - `GROCY_ENABLE_DEV_TOOLS` - `true` allows the raw API tools (`system_dev_*`) that YAML enables; anything else keeps them off
-- `MCP_OAUTH_ISSUER` / `MCP_OAUTH_RESOURCE_URL` (+ optional `MCP_OAUTH_REQUIRED_SCOPES`, `MCP_OAUTH_AUDIENCE`) - HTTP routes also accept JWT access tokens from that OIDC issuer (`src/server/oauth.ts`; SDK `requireBearerAuth` + `mcpAuthMetadataRouter` in `http-server.ts`)
+- `MCP_OAUTH_ISSUER` / `MCP_OAUTH_RESOURCE_URL` (+ optional `MCP_OAUTH_REQUIRED_SCOPES`, `MCP_OAUTH_AUDIENCE`, `MCP_OAUTH_ALLOWED_SUBJECTS`) - HTTP routes also accept JWT access tokens from that OIDC issuer (`src/server/oauth.ts`; SDK `requireBearerAuth` + `mcpAuthMetadataRouter` in `http-server.ts`)
 - `GROCY_API_KEY_FILE` / `MCP_HTTP_ACCESS_TOKEN_FILE` - read that secret from a file instead (`resolveFileEnv` in `src/config/index.ts`, list in `FILE_ENV_VARS`); the file wins, one trailing newline stripped, unreadable/empty file exits at startup
 
 ### Grocy amounts are stored in the stock unit

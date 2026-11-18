@@ -537,6 +537,14 @@ tools:
       expect(config.server.oauth).toBeUndefined();
     });
 
+    it('should leave OAuth off when MCP_OAUTH_REQUIRED_SCOPES is empty', () => {
+      setupEnvironment({ MCP_OAUTH_REQUIRED_SCOPES: ' , ' });
+
+      const config = new (ConfigManager as any)(tempConfigPath);
+
+      expect(config.server.oauth).toBeUndefined();
+    });
+
     it('should exit with code 1 when MCP_OAUTH_ISSUER is set without MCP_OAUTH_RESOURCE_URL', () => {
       setupEnvironment({ MCP_OAUTH_ISSUER: 'https://id.example.com' });
 

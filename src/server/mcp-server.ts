@@ -323,7 +323,7 @@ export class GrocyMcpServer {
         );
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to start HTTP server: ${reason}`, 'SERVER');
+        logger.error(`Failed to start HTTP server: ${reason}`, 'SERVER', { error });
         logger.error('HTTP server is explicitly enabled but cannot start - exiting', 'SERVER');
         process.exit(1);
       }
