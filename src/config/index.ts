@@ -9,6 +9,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import YAML from 'yaml';
 import { logger } from '../utils/logger.js';
+import type { OAuthConfig } from '../server/oauth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -66,6 +67,11 @@ const EnvironmentSchema = z.object({
   HTTP_SERVER_PORT: z.string().regex(/^\d+$/).optional(),
   HTTP_CORS_ORIGIN: z.string().optional(),
   MCP_HTTP_ACCESS_TOKEN: z.string().optional(),
+  MCP_OAUTH_ISSUER: z.string().optional(),
+  MCP_OAUTH_RESOURCE_URL: z.string().optional(),
+  MCP_OAUTH_AUDIENCE: z.string().optional(),
+  MCP_OAUTH_REQUIRED_SCOPES: z.string().optional(),
+  MCP_OAUTH_ALLOWED_SUBJECTS: z.string().optional(),
   MCP_SESSION_IDLE_TIMEOUT_MS: z.string().regex(/^\d+$/).optional(),
   MCP_SESSION_SWEEP_INTERVAL_MS: z.string().regex(/^\d+$/).optional(),
   SERIALIZE_STRUCTURED_TO_CONTENT: z.enum(['true', 'false']).optional(),
@@ -95,6 +101,22 @@ const YamlConfigSchema = z
         http_cors_origin: z.string().min(1).default('*'),
         /** When set, MCP HTTP/SSE routes require `Authorization: Bearer <token>`, `X-MCP-Access-Token`, or `access_token` query (GET only). */
         http_access_token: z.string().optional(),
+        /** When set, MCP HTTP/SSE routes also accept OAuth access tokens (JWTs) from this OIDC issuer. */
+        oauth: z
+          .object({
+            /** Issuer URL, exactly as in the tokens' `iss` claim; its discovery document is fetched at startup. */
+            issuer: z.string().url(),
+            /** Public URL of the MCP endpoint as clients have it configured, path included (e.g. `https://mcp.example.com/mcp`). */
+            resource_url: z.string().url(),
+            /** Expected `aud` claim; defaults to `resource_url`. */
+            audience: z.string().min(1).optional(),
+            /** Scopes every token must carry. */
+            required_scopes: z.array(z.string().min(1)).default([]),
+            /** When non-empty, only tokens whose `sub` claim is listed are accepted. */
+            allowed_subjects: z.array(z.string().min(1)).optional(),
+          })
+          .strict()
+          .optional(),
         /** Reap an idle streamable-HTTP MCP session after this many ms with no requests. Bounds memory when clients reconnect without sending `DELETE /mcp`. */
         session_idle_timeout_ms: z.number().int().positive().default(300_000),
         /** How often, in ms, to sweep for idle MCP sessions to reap. */
@@ -176,6 +198,7 @@ export class ConfigManager {
     http_server_port: number;
     http_cors_origin: string;
     http_access_token?: string;
+    oauth?: OAuthConfig;
     session_idle_timeout_ms: number;
     session_sweep_interval_ms: number;
     serialize_structured_to_content: boolean;
@@ -208,6 +231,9 @@ export class ConfigManager {
         this.config.yaml.server.http_access_token !== '' && {
           http_access_token: this.config.yaml.server.http_access_token,
         }),
+      ...(this.config.yaml.server.oauth !== undefined && {
+        oauth: this.config.yaml.server.oauth,
+      }),
     };
 
     this.tools = this.config.yaml.tools;
@@ -368,6 +394,20 @@ export class ConfigManager {
     if (env.MCP_HTTP_ACCESS_TOKEN !== undefined) {
       yaml.server.http_access_token =
         env.MCP_HTTP_ACCESS_TOKEN.length > 0 ? env.MCP_HTTP_ACCESS_TOKEN : undefined;
+    }
+
+    const oauthEnv = {
+      issuer: env.MCP_OAUTH_ISSUER,
+      resource_url: env.MCP_OAUTH_RESOURCE_URL,
+      audience: env.MCP_OAUTH_AUDIENCE,
+      required_scopes: env.MCP_OAUTH_REQUIRED_SCOPES?.split(/[\s,]+/).filter(Boolean),
+      allowed_subjects: env.MCP_OAUTH_ALLOWED_SUBJECTS?.split(/[\s,]+/).filter(Boolean),
+    };
+    for (const [key, value] of Object.entries(oauthEnv)) {
+      // Empty strings and empty lists (e.g. compose's `${VAR:-}`) count as unset.
+      if (value === undefined || value.length === 0) continue;
+      // Any MCP_OAUTH_* variable creates the section; schema validation then demands issuer + resource_url.
+      yaml.server.oauth = { ...yaml.server.oauth, [key]: value } as typeof yaml.server.oauth;
     }
 
     if (env.MCP_SESSION_IDLE_TIMEOUT_MS !== undefined) {
